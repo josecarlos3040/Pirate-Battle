@@ -1,8 +1,16 @@
-import { Container, Sprite, Texture } from "pixi.js";
+import { Container, Sprite } from "pixi.js";
+import type { Texture } from "pixi.js";
+
 import { GAME_CONFIG } from "../config/gameConfig";
 
 export class Player {
     public readonly container: Container;
+
+    public readonly collisionRadius = 30;
+
+    public health: number = GAME_CONFIG.player.maxHealth;
+
+    public isDead = false;
 
     private sprite: Sprite;
 
@@ -14,11 +22,11 @@ export class Player {
 
         this.sprite = new Sprite(texture);
 
-        // Faz a origem ficar no centro do navio
         this.sprite.anchor.set(0.5);
 
+        // Seu sprite estava invertido, então mantemos isso
         this.sprite.rotation = Math.PI;
-        // Ajuste temporário do tamanho
+
         this.sprite.width = 70;
         this.sprite.height = 100;
 
@@ -33,6 +41,10 @@ export class Player {
         arenaWidth: number,
         arenaHeight: number
     ) {
+        if (this.isDead) {
+            return;
+        }
+
         // ROTACIONAR
         if (left) {
             this.container.rotation -=
@@ -57,17 +69,43 @@ export class Player {
                 deltaTime;
         }
 
-        
+        // LIMITES DA TELA
         const margin = 40;
 
         this.container.x = Math.max(
             margin,
-            Math.min(arenaWidth - margin, this.container.x)
+            Math.min(
+                arenaWidth - margin,
+                this.container.x
+            )
         );
 
         this.container.y = Math.max(
             margin,
-            Math.min(arenaHeight - margin, this.container.y)
+            Math.min(
+                arenaHeight - margin,
+                this.container.y
+            )
         );
+    }
+
+    takeDamage(amount: number) {
+        if (this.isDead) {
+            return;
+        }
+
+        this.health -= amount;
+
+        console.log(
+            "Player HP:",
+            this.health
+        );
+
+        if (this.health <= 0) {
+            this.health = 0;
+            this.isDead = true;
+
+            console.log("PLAYER DEAD");
+        }
     }
 }

@@ -1,4 +1,4 @@
-import {
+import type {
     Application,
     Texture
 } from "pixi.js";
@@ -6,6 +6,8 @@ import {
 import { InputManager } from "./InputManager";
 import { Player } from "../entities/Player";
 import { Projectile } from "../entities/Projectile";
+import { Chaser } from "../entities/Chaser";
+
 import { GAME_CONFIG } from "../config/gameConfig";
 
 export class Game {
@@ -15,6 +17,9 @@ export class Game {
     private player: Player;
 
     private projectiles: Projectile[] = [];
+    private chasers: Chaser[] = [];
+
+    private score = 0;
 
     private frontShootCooldown = 0;
     private leftShootCooldown = 0;
@@ -42,15 +47,21 @@ export class Game {
         );
 
         app.ticker.add(this.update);
+
+        this.spawnChaser();
     }
+
+    // ===================================
+    // UPDATE
+    // ===================================
 
     private update = () => {
         const deltaTime =
             this.app.ticker.deltaMS / 1000;
 
-
+        // ===================================
         // PLAYER
-        // ===============================
+        // ===================================
 
         this.player.update(
             deltaTime,
@@ -63,9 +74,21 @@ export class Game {
             this.app.screen.height
         );
 
+        // ===================================
+        // CHASERS
+        // ===================================
 
-        // COOLDOWN
-        // ===============================
+        for (const chaser of this.chasers) {
+            chaser.update(
+                deltaTime,
+                this.player.container.x,
+                this.player.container.y
+            );
+        }
+
+        // ===================================
+        // COOLDOWNS
+        // ===================================
 
         if (this.frontShootCooldown > 0) {
             this.frontShootCooldown -= deltaTime;
@@ -79,9 +102,9 @@ export class Game {
             this.rightShootCooldown -= deltaTime;
         }
 
-
-        // TIRO
-        // ===============================
+        // ===================================
+        // INPUT DE TIRO
+        // ===================================
 
         if (
             this.input.isPressed("Space") &&
@@ -90,10 +113,13 @@ export class Game {
             this.shootFront();
 
             this.frontShootCooldown =
-                GAME_CONFIG.player.frontWeapon.cooldown;
+                GAME_CONFIG.player
+                    .frontWeapon
+                    .cooldown;
         }
 
-        // TIRO LATERAL ESQUERDO
+        // TIRO ESQUERDO
+
         if (
             this.input.isPressed("KeyQ") &&
             this.leftShootCooldown <= 0
@@ -101,10 +127,13 @@ export class Game {
             this.shootSide("left");
 
             this.leftShootCooldown =
-                GAME_CONFIG.player.sideWeapon.cooldown;
+                GAME_CONFIG.player
+                    .sideWeapon
+                    .cooldown;
         }
 
-        // TIRO LATERAL DIREITO
+        // TIRO DIREITO
+
         if (
             this.input.isPressed("KeyE") &&
             this.rightShootCooldown <= 0
@@ -112,17 +141,19 @@ export class Game {
             this.shootSide("right");
 
             this.rightShootCooldown =
-                GAME_CONFIG.player.sideWeapon.cooldown;
+                GAME_CONFIG.player
+                    .sideWeapon
+                    .cooldown;
         }
 
-
+        // ===================================
         // PROJECTILES
-        // ===============================
+        // ===================================
 
         for (const projectile of this.projectiles) {
             projectile.update(deltaTime);
 
-            // mata s sair da tela
+            // Destrói se sair da tela
             if (
                 projectile.container.x < 0 ||
                 projectile.container.x >
@@ -135,9 +166,111 @@ export class Game {
             }
         }
 
-        // deleta as balas mortas
+        // ===================================
+        // PROJECTILE x CHASER
+        // ===================================
+
+        for (const projectile of this.projectiles) {
+            if (projectile.isDead) {
+                continue;
+            }
+
+            for (const chaser of this.chasers) {
+                if (chaser.isDead) {
+                    continue;
+                }
+
+                const dx =
+                    projectile.container.x -
+                    chaser.container.x;
+
+                const dy =
+                    projectile.container.y -
+                    chaser.container.y;
+
+                const distanceSquared =
+                    dx * dx + dy * dy;
+
+                const collisionDistance =
+                    projectile.radius +
+                    chaser.collisionRadius;
+
+                if (
+                    distanceSquared <=
+                    collisionDistance *
+                        collisionDistance
+                ) {
+                    chaser.takeDamage(
+                        projectile.damage
+                    );
+
+                    // Cada bala só causa dano uma vez
+                    projectile.isDead = true;
+
+                    if (chaser.isDead) {
+                        this.score++;
+
+                        console.log(
+                            "SCORE:",
+                            this.score
+                        );
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        // ===================================
+        // CHASER x PLAYER
+        // ===================================
+
+        for (const chaser of this.chasers) {
+            if (chaser.isDead) {
+                continue;
+            }
+
+            const dx =
+                chaser.container.x -
+                this.player.container.x;
+
+            const dy =
+                chaser.container.y -
+                this.player.container.y;
+
+            const distanceSquared =
+                dx * dx + dy * dy;
+
+            const collisionDistance =
+                chaser.collisionRadius +
+                this.player.collisionRadius;
+
+            if (
+                distanceSquared <=
+                collisionDistance *
+                    collisionDistance
+            ) {
+                this.player.takeDamage(
+                    GAME_CONFIG.chaser
+                        .collisionDamage
+                );
+
+                // Chaser explode ao bater
+                chaser.isDead = true;
+
+                console.log(
+                    "Chaser hit player"
+                );
+            }
+        }
+
+        // ===================================
+        // REMOVE PROJECTILES
+        // ===================================
+
         for (
-            let i = this.projectiles.length - 1;
+            let i =
+                this.projectiles.length - 1;
             i >= 0;
             i--
         ) {
@@ -151,25 +284,76 @@ export class Game {
 
                 projectile.destroy();
 
-                this.projectiles.splice(i, 1);
+                this.projectiles.splice(
+                    i,
+                    1
+                );
+            }
+        }
+
+        // ===================================
+        // REMOVE CHASERS
+        // ===================================
+
+        for (
+            let i =
+                this.chasers.length - 1;
+            i >= 0;
+            i--
+        ) {
+            const chaser =
+                this.chasers[i];
+
+            if (chaser.isDead) {
+                this.app.stage.removeChild(
+                    chaser.container
+                );
+
+                chaser.destroy();
+
+                this.chasers.splice(
+                    i,
+                    1
+                );
             }
         }
     };
 
+    // ===================================
+    // SPAWN CHASER
+    // ===================================
 
+    private spawnChaser() {
+        const chaser = new Chaser(
+            100,
+            100
+        );
+
+        this.chasers.push(chaser);
+
+        this.app.stage.addChild(
+            chaser.container
+        );
+    }
+
+    // ===================================
     // FRONT CANNON
     // ===================================
 
     private shootFront() {
+        // ISSO ESTAVA FALTANDO
+        const rotation =
+            this.player.container.rotation;
+
         const projectile =
             new Projectile(
-            this.player.container.x +
-                Math.sin(this.player.container.rotation) * 55,
+                this.player.container.x +
+                    Math.sin(rotation) * 55,
 
-            this.player.container.y -
-                Math.cos(this.player.container.rotation) * 55,
+                this.player.container.y -
+                    Math.cos(rotation) * 55,
 
-                this.player.container.rotation,
+                rotation,
 
                 GAME_CONFIG.player
                     .frontWeapon
@@ -177,7 +361,11 @@ export class Game {
 
                 GAME_CONFIG.player
                     .frontWeapon
-                    .projectileLifetime
+                    .projectileLifetime,
+
+                GAME_CONFIG.player
+                    .frontWeapon
+                    .damage
             );
 
         this.projectiles.push(
@@ -189,10 +377,13 @@ export class Game {
         );
     }
 
-
-        // SIDE CANNON
     // ===================================
-    private shootSide(side: "left" | "right") {
+    // SIDE CANNON
+    // ===================================
+
+    private shootSide(
+        side: "left" | "right"
+    ) {
         const shipRotation =
             this.player.container.rotation;
 
@@ -220,7 +411,6 @@ export class Game {
 
         const sideOffset = 40;
 
-        // Quantidade de canhões vem da config
         const projectileCount =
             GAME_CONFIG.player
                 .sideWeapon
@@ -250,14 +440,16 @@ export class Game {
         ) {
             const spawnX =
                 this.player.container.x +
-                forwardX * forwardOffset +
+                forwardX *
+                    forwardOffset +
                 rightX *
                     sideOffset *
                     sideDirection;
 
             const spawnY =
                 this.player.container.y +
-                forwardY * forwardOffset +
+                forwardY *
+                    forwardOffset +
                 rightY *
                     sideOffset *
                     sideDirection;
@@ -274,7 +466,11 @@ export class Game {
 
                     GAME_CONFIG.player
                         .sideWeapon
-                        .projectileLifetime
+                        .projectileLifetime,
+
+                    GAME_CONFIG.player
+                        .sideWeapon
+                        .damage
                 );
 
             this.projectiles.push(
@@ -287,7 +483,7 @@ export class Game {
         }
     }
 
-
+    // ===================================
     // DESTROY
     // ===================================
 
@@ -307,8 +503,17 @@ export class Game {
 
         this.projectiles = [];
 
+        for (
+            const chaser
+            of this.chasers
+        ) {
+            chaser.destroy();
+        }
+
+        this.chasers = [];
+
         this.player.container.destroy({
-            children: true,
+            children: true
         });
     }
 }
