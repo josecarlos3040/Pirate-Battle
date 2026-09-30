@@ -17,6 +17,8 @@ export class Game {
     private projectiles: Projectile[] = [];
 
     private frontShootCooldown = 0;
+    private leftShootCooldown = 0;
+    private rightShootCooldown = 0;
 
     constructor(
         app: Application,
@@ -46,7 +48,7 @@ export class Game {
         const deltaTime =
             this.app.ticker.deltaMS / 1000;
 
-        // ===============================
+
         // PLAYER
         // ===============================
 
@@ -61,7 +63,7 @@ export class Game {
             this.app.screen.height
         );
 
-        // ===============================
+
         // COOLDOWN
         // ===============================
 
@@ -69,7 +71,15 @@ export class Game {
             this.frontShootCooldown -= deltaTime;
         }
 
-        // ===============================
+        if (this.leftShootCooldown > 0) {
+            this.leftShootCooldown -= deltaTime;
+        }
+
+        if (this.rightShootCooldown > 0) {
+            this.rightShootCooldown -= deltaTime;
+        }
+
+
         // TIRO
         // ===============================
 
@@ -83,14 +93,36 @@ export class Game {
                 GAME_CONFIG.player.frontWeapon.cooldown;
         }
 
-        // ===============================
+        // TIRO LATERAL ESQUERDO
+        if (
+            this.input.isPressed("KeyQ") &&
+            this.leftShootCooldown <= 0
+        ) {
+            this.shootSide("left");
+
+            this.leftShootCooldown =
+                GAME_CONFIG.player.sideWeapon.cooldown;
+        }
+
+        // TIRO LATERAL DIREITO
+        if (
+            this.input.isPressed("KeyE") &&
+            this.rightShootCooldown <= 0
+        ) {
+            this.shootSide("right");
+
+            this.rightShootCooldown =
+                GAME_CONFIG.player.sideWeapon.cooldown;
+        }
+
+
         // PROJECTILES
         // ===============================
 
         for (const projectile of this.projectiles) {
             projectile.update(deltaTime);
 
-            // Também mata se sair da tela
+            // mata s sair da tela
             if (
                 projectile.container.x < 0 ||
                 projectile.container.x >
@@ -103,7 +135,7 @@ export class Game {
             }
         }
 
-        // Remove as balas mortas
+        // deleta as balas mortas
         for (
             let i = this.projectiles.length - 1;
             i >= 0;
@@ -124,7 +156,7 @@ export class Game {
         }
     };
 
-    // ===================================
+
     // FRONT CANNON
     // ===================================
 
@@ -157,7 +189,105 @@ export class Game {
         );
     }
 
+
+        // SIDE CANNON
     // ===================================
+    private shootSide(side: "left" | "right") {
+        const shipRotation =
+            this.player.container.rotation;
+
+        const sideRotation =
+            side === "left"
+                ? shipRotation - Math.PI / 2
+                : shipRotation + Math.PI / 2;
+
+        // Frente do navio
+        const forwardX =
+            Math.sin(shipRotation);
+
+        const forwardY =
+            -Math.cos(shipRotation);
+
+        // Direita do navio
+        const rightX =
+            Math.cos(shipRotation);
+
+        const rightY =
+            Math.sin(shipRotation);
+
+        const sideDirection =
+            side === "left" ? -1 : 1;
+
+        const sideOffset = 40;
+
+        // Quantidade de canhões vem da config
+        const projectileCount =
+            GAME_CONFIG.player
+                .sideWeapon
+                .projectileCount;
+
+        const spacing = 30;
+
+        const cannonPositions: number[] = [];
+
+        for (
+            let i = 0;
+            i < projectileCount;
+            i++
+        ) {
+            const centeredIndex =
+                i -
+                (projectileCount - 1) / 2;
+
+            cannonPositions.push(
+                centeredIndex * spacing
+            );
+        }
+
+        for (
+            const forwardOffset
+            of cannonPositions
+        ) {
+            const spawnX =
+                this.player.container.x +
+                forwardX * forwardOffset +
+                rightX *
+                    sideOffset *
+                    sideDirection;
+
+            const spawnY =
+                this.player.container.y +
+                forwardY * forwardOffset +
+                rightY *
+                    sideOffset *
+                    sideDirection;
+
+            const projectile =
+                new Projectile(
+                    spawnX,
+                    spawnY,
+                    sideRotation,
+
+                    GAME_CONFIG.player
+                        .sideWeapon
+                        .projectileSpeed,
+
+                    GAME_CONFIG.player
+                        .sideWeapon
+                        .projectileLifetime
+                );
+
+            this.projectiles.push(
+                projectile
+            );
+
+            this.app.stage.addChild(
+                projectile.container
+            );
+        }
+    }
+
+
     // DESTROY
     // ===================================
 
