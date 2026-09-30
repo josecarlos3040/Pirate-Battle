@@ -8,6 +8,9 @@ import { Player } from "../entities/Player";
 import { Projectile } from "../entities/Projectile";
 import { Chaser } from "../entities/Chaser";
 import { Shooter } from "../entities/Shooter";
+import { Island } from "../entities/Island";
+
+import { Hud } from "../ui/Hud";
 
 import { GAME_CONFIG } from "../config/gameConfig";
 
@@ -20,8 +23,13 @@ export class Game {
     private projectiles: Projectile[] = [];
     private chasers: Chaser[] = [];
     private shooters: Shooter[] = [];
+    private islands: Island[] = [];
 
     private score = 0;
+    private hud: Hud;
+
+    private remainingTime: number =
+        GAME_CONFIG.match.duration;
 
     private frontShootCooldown = 0;
     private leftShootCooldown = 0;
@@ -35,11 +43,15 @@ export class Game {
     ) {
         this.app = app;
 
+        // Permite usar zIndex
+        this.app.stage.sortableChildren = true;
+
         this.input = new InputManager();
 
         this.player = new Player(
             playerTexture
         );
+        this.player.container.zIndex = 10;
 
         this.player.container.position.set(
             app.screen.width / 2,
@@ -49,10 +61,18 @@ export class Game {
         app.stage.addChild(
             this.player.container
         );
+        this.createIslands();
+
+        this.hud = new Hud();
+
+        this.hud.container.zIndex = 100;
+
+        this.app.stage.addChild(
+            this.hud.container
+        );
 
         app.ticker.add(this.update);
 
-        app.ticker.add(this.update);
     }
 
     // ===================================
@@ -63,6 +83,13 @@ export class Game {
         const deltaTime =
             this.app.ticker.deltaMS / 1000;
 
+
+        this.remainingTime -=
+            deltaTime;
+
+        if (this.remainingTime < 0) {
+            this.remainingTime = 0;
+        }
         // ===================================
         // PLAYER
         // ===================================
@@ -199,6 +226,41 @@ export class Game {
             }
         }
 
+        // PROJECTILE x ISLAND
+        // ===================================
+
+        for (const projectile of this.projectiles) {
+            if (projectile.isDead) {
+                continue;
+            }
+
+            for (const island of this.islands) {
+                const dx =
+                    projectile.container.x -
+                    island.container.x;
+
+                const dy =
+                    projectile.container.y -
+                    island.container.y;
+
+                const collisionDistance =
+                    projectile.radius +
+                    island.collisionRadius;
+
+                const distanceSquared =
+                    dx * dx + dy * dy;
+
+                if (
+                    distanceSquared <=
+                    collisionDistance *
+                        collisionDistance
+                ) {
+                    projectile.isDead = true;
+
+                    break;
+                }
+            }
+        }
         // ===================================
         // PROJECTILE x CHASER
         // ===================================
@@ -298,6 +360,56 @@ export class Game {
                 console.log(
                     "Chaser hit player"
                 );
+            }
+        }
+
+        // CHASER x ISLAND
+        // ===================================
+        for (const chaser of this.chasers) {
+            if (chaser.isDead) {
+                continue;
+            }
+
+            for (const island of this.islands) {
+                const correctedPosition =
+                    this.resolveIslandCollision(
+                        chaser.container.x,
+                        chaser.container.y,
+                        chaser.collisionRadius,
+                        island
+                    );
+
+                if (correctedPosition) {
+                    chaser.container.position.set(
+                        correctedPosition.x,
+                        correctedPosition.y
+                    );
+                }
+            }
+        }
+
+        // SHOOTER x ISLAND
+        // ===================================
+        for (const shooter of this.shooters) {
+            if (shooter.isDead) {
+                continue;
+            }
+
+            for (const island of this.islands) {
+                const correctedPosition =
+                    this.resolveIslandCollision(
+                        shooter.container.x,
+                        shooter.container.y,
+                        shooter.collisionRadius,
+                        island
+                    );
+
+                if (correctedPosition) {
+                    shooter.container.position.set(
+                        correctedPosition.x,
+                        correctedPosition.y
+                    );
+                }
             }
         }
 
@@ -411,6 +523,26 @@ export class Game {
             }
         }
 
+        // PLAYER x ISLAND
+        // ===================================
+
+        for (const island of this.islands) {
+            const correctedPosition =
+                this.resolveIslandCollision(
+                    this.player.container.x,
+                    this.player.container.y,
+                    this.player.collisionRadius,
+                    island
+                );
+
+            if (correctedPosition) {
+                this.player.container.position.set(
+                    correctedPosition.x,
+                    correctedPosition.y
+                );
+            }
+        }
+
         // ===================================
         // REMOVE PROJECTILES
         // ===================================
@@ -477,6 +609,16 @@ export class Game {
                 );
             }
         }
+        // HUD
+        // ===================================
+
+        this.hud.update(
+            this.score,
+            this.player.health,
+            GAME_CONFIG.player.maxHealth,
+            this.remainingTime,
+            this.app.screen.width
+        );
     };
 
     // ===================================
@@ -491,6 +633,8 @@ export class Game {
             position.x,
             position.y
         );
+
+        chaser.container.zIndex = 10;
 
         this.chasers.push(chaser);
 
@@ -515,6 +659,8 @@ export class Game {
                 position.y
             );
 
+        shooter.container.zIndex = 10;
+        
         this.shooters.push(
             shooter
         );
@@ -668,13 +814,11 @@ export class Game {
                 "player"
             );
 
-        this.projectiles.push(
-            projectile
-        );
+        projectile.container.zIndex = 20;
 
-        this.app.stage.addChild(
-            projectile.container
-        );
+        this.projectiles.push(projectile);
+
+        this.app.stage.addChild(projectile.container);
     }
 
     // ===================================
@@ -775,6 +919,8 @@ export class Game {
                     "player"
                 );
 
+            projectile.container.zIndex = 20;
+
             this.projectiles.push(
                 projectile
             );
@@ -823,6 +969,8 @@ export class Game {
             "enemy"
         );
 
+        projectile.container.zIndex = 20;
+
         this.projectiles.push(
             projectile
         );
@@ -832,7 +980,88 @@ export class Game {
         );
     }
 
+    private createIslands() {
+        const island = new Island(
+            this.app.screen.width * 0.65,
+            this.app.screen.height * 0.5,
+            90
+        );
+
+        // Ilha fica abaixo dos navios
+        island.container.zIndex = 5;
+
+        this.islands.push(island);
+
+        this.app.stage.addChild(
+            island.container
+        );
+    }
     
+    private resolveIslandCollision(
+        objectX: number,
+        objectY: number,
+        objectRadius: number,
+        island: Island
+    ) {
+        const dx =
+            objectX -
+            island.container.x;
+
+        const dy =
+            objectY -
+            island.container.y;
+
+        const distanceSquared =
+            dx * dx + dy * dy;
+
+        const minimumDistance =
+            objectRadius +
+            island.collisionRadius;
+
+        if (
+            distanceSquared >=
+            minimumDistance *
+                minimumDistance
+        ) {
+            return null;
+        }
+
+        const distance =
+            Math.sqrt(
+                distanceSquared
+            );
+
+        // Caso extremamente raro de estarem
+        // exatamente na mesma posição
+        if (distance === 0) {
+            return {
+                x:
+                    island.container.x +
+                    minimumDistance,
+
+                y:
+                    island.container.y
+            };
+        }
+
+        const normalX =
+            dx / distance;
+
+        const normalY =
+            dy / distance;
+
+        return {
+            x:
+                island.container.x +
+                normalX *
+                    minimumDistance,
+
+            y:
+                island.container.y +
+                normalY *
+                    minimumDistance
+        };
+    }
 
     // ===================================
     // DESTROY
@@ -872,5 +1101,15 @@ export class Game {
         }
 
         this.shooters = [];
+
+        for (const island of this.islands) {
+            island.destroy();
+        }
+
+        this.hud.container.destroy({
+            children: true
+        });
+
+        this.islands = [];
     }
 }

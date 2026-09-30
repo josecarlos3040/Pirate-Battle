@@ -4,6 +4,7 @@ import {
 } from "pixi.js";
 
 import { GAME_CONFIG } from "../config/gameConfig";
+import { HealthBar } from "../ui/HealthBar";
 
 export class Shooter {
     public readonly container: Container;
@@ -12,6 +13,7 @@ export class Shooter {
 
     public health: number =
         GAME_CONFIG.shooter.maxHealth;
+    private healthBar: HealthBar;
 
     public isDead = false;
 
@@ -43,6 +45,22 @@ export class Shooter {
             .fill(0x4488ff);
 
         this.container.addChild(body);
+        this.healthBar =
+            new HealthBar(55, 6);
+
+        this.healthBar.container.position.set(
+            0,
+            -45
+        );
+
+        this.container.addChild(
+            this.healthBar.container
+        );
+
+        this.healthBar.update(
+            this.health,
+            GAME_CONFIG.shooter.maxHealth
+        );
 
         this.container.position.set(
             x,
@@ -173,6 +191,11 @@ export class Shooter {
 
         this.health -= amount;
 
+        this.healthBar.update(
+            this.health,
+            GAME_CONFIG.shooter.maxHealth
+        );
+
         console.log(
             "Shooter HP:",
             this.health
@@ -180,6 +203,12 @@ export class Shooter {
 
         if (this.health <= 0) {
             this.health = 0;
+
+            this.healthBar.update(
+                0,
+                GAME_CONFIG.shooter.maxHealth
+            );
+
             this.isDead = true;
         }
     }

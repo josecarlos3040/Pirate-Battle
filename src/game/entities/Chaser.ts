@@ -4,6 +4,7 @@ import {
 } from "pixi.js";
 
 import { GAME_CONFIG } from "../config/gameConfig";
+import { HealthBar } from "../ui/HealthBar";
 
 export class Chaser {
     public readonly container: Container;
@@ -11,6 +12,7 @@ export class Chaser {
     public readonly collisionRadius = 30;
 
     public health: number = GAME_CONFIG.chaser.maxHealth;
+    private healthBar: HealthBar;
 
     public isDead = false;
 
@@ -37,6 +39,22 @@ export class Chaser {
             .fill(0xff4444);
 
         this.container.addChild(body);
+
+        this.healthBar =new HealthBar(55, 6);
+
+        this.healthBar.container.position.set(
+            0,
+            -45
+        );
+
+        this.container.addChild(
+            this.healthBar.container
+        );
+
+        this.healthBar.update(
+            this.health,
+            GAME_CONFIG.chaser.maxHealth
+        );
 
         this.container.position.set(
             x,
@@ -117,12 +135,24 @@ export class Chaser {
 
         this.health -= amount;
 
+        this.healthBar.update(
+            this.health,
+            GAME_CONFIG.chaser.maxHealth
+        );
+
         console.log(
             "Chaser HP:",
             this.health
         );
 
         if (this.health <= 0) {
+            this.health = 0;
+
+            this.healthBar.update(
+                0,
+                GAME_CONFIG.chaser.maxHealth
+            );
+
             this.isDead = true;
         }
     }
