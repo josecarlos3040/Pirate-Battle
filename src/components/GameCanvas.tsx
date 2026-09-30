@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
-import { Application } from "pixi.js";
+import { Application, Assets } from "pixi.js";
 import { Game } from "../game/core/Game";
+
+import playerShipUrl from "../assets/png/default/ships/ship_1.png";
 
 export function GameCanvas() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -25,13 +27,24 @@ export function GameCanvas() {
                 return;
             }
 
+            // CARREGA O NAVIO
+            const playerTexture = await Assets.load(playerShipUrl);
+
+            if (cancelled) {
+                pixiApp.destroy(true);
+                return;
+            }
+
             app = pixiApp;
 
             containerRef.current?.appendChild(
                 pixiApp.canvas
             );
 
-            game = new Game(pixiApp);
+            game = new Game(
+                pixiApp,
+                playerTexture
+            );
         }
 
         start();

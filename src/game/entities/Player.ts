@@ -1,34 +1,39 @@
-import { Graphics, Container } from "pixi.js";
+import { Container, Sprite, Texture } from "pixi.js";
+import { GAME_CONFIG } from "../config/gameConfig";
 
 export class Player {
     public readonly container: Container;
 
-    private speed = 250;
-    private rotationSpeed = 2.5;
+    private sprite: Sprite;
 
-    constructor() {
+    private speed = GAME_CONFIG.player.movementSpeed;
+    private rotationSpeed = GAME_CONFIG.player.rotationSpeed;
+
+    constructor(texture: Texture) {
         this.container = new Container();
 
-        const placeholder = new Graphics();
+        this.sprite = new Sprite(texture);
 
-        placeholder
-            .poly([
-                0, -30,
-                20, 25,
-                0, 15,
-                -20, 25,
-            ])
-            .fill(0xffffff);
+        // Faz a origem ficar no centro do navio
+        this.sprite.anchor.set(0.5);
 
-        this.container.addChild(placeholder);
+        this.sprite.rotation = Math.PI;
+        // Ajuste temporário do tamanho
+        this.sprite.width = 70;
+        this.sprite.height = 100;
+
+        this.container.addChild(this.sprite);
     }
 
     update(
         deltaTime: number,
         forward: boolean,
         left: boolean,
-        right: boolean
+        right: boolean,
+        arenaWidth: number,
+        arenaHeight: number
     ) {
+        // ROTACIONAR
         if (left) {
             this.container.rotation -=
                 this.rotationSpeed * deltaTime;
@@ -39,6 +44,7 @@ export class Player {
                 this.rotationSpeed * deltaTime;
         }
 
+        // MOVIMENTAR
         if (forward) {
             this.container.x +=
                 Math.sin(this.container.rotation) *
@@ -50,5 +56,18 @@ export class Player {
                 this.speed *
                 deltaTime;
         }
+
+        
+        const margin = 40;
+
+        this.container.x = Math.max(
+            margin,
+            Math.min(arenaWidth - margin, this.container.x)
+        );
+
+        this.container.y = Math.max(
+            margin,
+            Math.min(arenaHeight - margin, this.container.y)
+        );
     }
 }
