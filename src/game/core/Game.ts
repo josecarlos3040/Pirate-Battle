@@ -7,6 +7,7 @@ import { InputManager } from "./InputManager";
 import { Player } from "../entities/Player";
 import { Projectile } from "../entities/Projectile";
 import { Chaser } from "../entities/Chaser";
+import { Shooter } from "../entities/Shooter";
 
 import { GAME_CONFIG } from "../config/gameConfig";
 
@@ -18,12 +19,15 @@ export class Game {
 
     private projectiles: Projectile[] = [];
     private chasers: Chaser[] = [];
+    private shooters: Shooter[] = [];
 
     private score = 0;
 
     private frontShootCooldown = 0;
     private leftShootCooldown = 0;
     private rightShootCooldown = 0;
+
+    private enemySpawnTimer = GAME_CONFIG.match.enemySpawnInterval;
 
     constructor(
         app: Application,
@@ -48,7 +52,7 @@ export class Game {
 
         app.ticker.add(this.update);
 
-        this.spawnChaser();
+        app.ticker.add(this.update);
     }
 
     // ===================================
@@ -86,6 +90,24 @@ export class Game {
             );
         }
 
+        // SHOOTERS
+        // ===================================
+
+        for (const shooter of this.shooters) {
+            const shouldShoot =
+                shooter.update(
+                    deltaTime,
+                    this.player.container.x,
+                    this.player.container.y
+                );
+
+            if (shouldShoot) {
+                this.shooterFire(
+                    shooter
+                );
+            }
+        }
+
         // ===================================
         // COOLDOWNS
         // ===================================
@@ -102,7 +124,18 @@ export class Game {
             this.rightShootCooldown -= deltaTime;
         }
 
+        // ENEMY SPAWN
         // ===================================
+
+        this.enemySpawnTimer -= deltaTime;
+
+        if (this.enemySpawnTimer <= 0) {
+            this.spawnEnemy();
+
+            this.enemySpawnTimer =
+                GAME_CONFIG.match.enemySpawnInterval;
+        }
+
         // INPUT DE TIRO
         // ===================================
 
@@ -172,6 +205,10 @@ export class Game {
 
         for (const projectile of this.projectiles) {
             if (projectile.isDead) {
+                continue;
+            }
+
+            if (projectile.owner !== "player") {
                 continue;
             }
 
@@ -264,6 +301,116 @@ export class Game {
             }
         }
 
+        // PROJECTILE x SHOOTER
+        // ===================================
+
+        for (const projectile of this.projectiles) {
+            if (projectile.isDead) {
+                continue;
+            }
+
+            if (
+                projectile.owner !==
+                "player"
+            ) {
+                continue;
+            }
+
+            for (
+                const shooter
+                of this.shooters
+            ) {
+                if (shooter.isDead) {
+                    continue;
+                }
+
+                const dx =
+                    projectile.container.x -
+                    shooter.container.x;
+
+                const dy =
+                    projectile.container.y -
+                    shooter.container.y;
+
+                const distanceSquared =
+                    dx * dx + dy * dy;
+
+                const collisionDistance =
+                    projectile.radius +
+                    shooter.collisionRadius;
+
+                if (
+                    distanceSquared <=
+                    collisionDistance *
+                        collisionDistance
+                ) {
+                    shooter.takeDamage(
+                        projectile.damage
+                    );
+
+                    projectile.isDead = true;
+
+                    if (shooter.isDead) {
+                        this.score++;
+
+                        console.log(
+                            "SCORE:",
+                            this.score
+                        );
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        // ENEMY PROJECTILE x PLAYER
+        // ===================================
+
+        for (const projectile of this.projectiles) {
+            if (projectile.isDead) {
+                continue;
+            }
+
+            if (
+                projectile.owner !==
+                "enemy"
+            ) {
+                continue;
+            }
+
+            const dx =
+                projectile.container.x -
+                this.player.container.x;
+
+            const dy =
+                projectile.container.y -
+                this.player.container.y;
+
+            const distanceSquared =
+                dx * dx + dy * dy;
+
+            const collisionDistance =
+                projectile.radius +
+                this.player.collisionRadius;
+
+            if (
+                distanceSquared <=
+                collisionDistance *
+                    collisionDistance
+            ) {
+                this.player.takeDamage(
+                    projectile.damage
+                );
+
+                projectile.isDead = true;
+
+                console.log(
+                    "Enemy projectile hit player"
+                );
+            }
+        }
+
         // ===================================
         // REMOVE PROJECTILES
         // ===================================
@@ -295,12 +442,7 @@ export class Game {
         // REMOVE CHASERS
         // ===================================
 
-        for (
-            let i =
-                this.chasers.length - 1;
-            i >= 0;
-            i--
-        ) {
+        for (let i = this.chasers.length - 1; i >= 0; i--) {
             const chaser =
                 this.chasers[i];
 
@@ -317,6 +459,24 @@ export class Game {
                 );
             }
         }
+
+        for (let i = this.shooters.length - 1; i >= 0; i--) {
+            const shooter =
+                this.shooters[i];
+
+            if (shooter.isDead) {
+                this.app.stage.removeChild(
+                    shooter.container
+                );
+
+                shooter.destroy();
+
+                this.shooters.splice(
+                    i,
+                    1
+                );
+            }
+        }
     };
 
     // ===================================
@@ -324,9 +484,12 @@ export class Game {
     // ===================================
 
     private spawnChaser() {
+        const position =
+            this.getEnemySpawnPosition();
+
         const chaser = new Chaser(
-            100,
-            100
+            position.x,
+            position.y
         );
 
         this.chasers.push(chaser);
@@ -334,6 +497,141 @@ export class Game {
         this.app.stage.addChild(
             chaser.container
         );
+
+        console.log(
+            "Enemy spawned:",
+            position.x,
+            position.y
+        );
+    }
+
+    private spawnShooter() {
+        const position =
+            this.getEnemySpawnPosition();
+
+        const shooter =
+            new Shooter(
+                position.x,
+                position.y
+            );
+
+        this.shooters.push(
+            shooter
+        );
+
+        this.app.stage.addChild(
+            shooter.container
+        );
+
+        console.log(
+            "Shooter spawned"
+        );
+    }
+
+    private spawnEnemy() {
+        const spawnShooter =
+            Math.random() < 0.5;
+
+        if (spawnShooter) {
+            this.spawnShooter();
+        } else {
+            this.spawnChaser();
+        }
+    }
+
+    private getEnemySpawnPosition() {
+        const width =
+            this.app.screen.width;
+
+        const height =
+            this.app.screen.height;
+
+        const margin = 70;
+
+        const minimumDistanceFromPlayer = GAME_CONFIG.match.minimumEnemySpawnDistance;
+
+        // Tenta encontrar uma posição boa
+        for (let attempt = 0; attempt < 20; attempt++) {
+
+            const side =
+                Math.floor(Math.random() * 4);
+
+            let x = 0;
+            let y = 0;
+
+            switch (side) {
+                // TOPO
+                case 0:
+                    x =
+                        margin +
+                        Math.random() *
+                            (width - margin * 2);
+
+                    y = margin;
+
+                    break;
+
+                // DIREITA
+                case 1:
+                    x = width - margin;
+
+                    y =
+                        margin +
+                        Math.random() *
+                            (height - margin * 2);
+
+                    break;
+
+                // BAIXO
+                case 2:
+                    x =
+                        margin +
+                        Math.random() *
+                            (width - margin * 2);
+
+                    y = height - margin;
+
+                    break;
+
+                // ESQUERDA
+                default:
+                    x = margin;
+
+                    y =
+                        margin +
+                        Math.random() *
+                            (height - margin * 2);
+
+                    break;
+            }
+
+            const dx =
+                x - this.player.container.x;
+
+            const dy =
+                y - this.player.container.y;
+
+            const distance =
+                Math.sqrt(
+                    dx * dx + dy * dy
+                );
+
+            if (
+                distance >=
+                minimumDistanceFromPlayer
+            ) {
+                return {
+                    x,
+                    y
+                };
+            }
+        }
+
+        // Fallback caso as 20 tentativas falhem
+        return {
+            x: margin,
+            y: margin
+        };
     }
 
     // ===================================
@@ -365,7 +663,9 @@ export class Game {
 
                 GAME_CONFIG.player
                     .frontWeapon
-                    .damage
+                    .damage,
+
+                "player"
             );
 
         this.projectiles.push(
@@ -470,7 +770,9 @@ export class Game {
 
                     GAME_CONFIG.player
                         .sideWeapon
-                        .damage
+                        .damage,
+
+                    "player"
                 );
 
             this.projectiles.push(
@@ -482,6 +784,55 @@ export class Game {
             );
         }
     }
+
+    private shooterFire(shooter: Shooter) {
+    const rotation =
+        shooter.container.rotation;
+
+    const spawnDistance = 45;
+
+    const spawnX =
+        shooter.container.x +
+        Math.sin(rotation) *
+            spawnDistance;
+
+    const spawnY =
+        shooter.container.y -
+        Math.cos(rotation) *
+            spawnDistance;
+
+    const projectile =
+        new Projectile(
+            spawnX,
+            spawnY,
+
+            rotation,
+
+            GAME_CONFIG.shooter
+                .weapon
+                .projectileSpeed,
+
+            GAME_CONFIG.shooter
+                .weapon
+                .projectileLifetime,
+
+            GAME_CONFIG.shooter
+                .weapon
+                .damage,
+
+            "enemy"
+        );
+
+        this.projectiles.push(
+            projectile
+        );
+
+        this.app.stage.addChild(
+            projectile.container
+        );
+    }
+
+    
 
     // ===================================
     // DESTROY
@@ -515,5 +866,11 @@ export class Game {
         this.player.container.destroy({
             children: true
         });
+
+        for (const shooter of this.shooters) {
+            shooter.destroy();
+        }
+
+        this.shooters = [];
     }
 }

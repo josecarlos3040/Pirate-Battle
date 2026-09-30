@@ -1,10 +1,15 @@
 import { Container, Graphics } from "pixi.js";
 
+export type ProjectileOwner =
+    "player" | "enemy";
+
 export class Projectile {
     public readonly container: Container;
 
     public readonly damage: number;
     public readonly radius = 7;
+
+    public readonly owner: ProjectileOwner;
 
     private speed: number;
     private lifetime: number;
@@ -20,7 +25,8 @@ export class Projectile {
         rotation: number,
         speed: number,
         lifetime: number,
-        damage: number
+        damage: number,
+        owner: ProjectileOwner
     ) {
         this.container = new Container();
 
@@ -28,19 +34,29 @@ export class Projectile {
 
         ball
             .circle(0, 0, this.radius)
-            .fill(0x222222);
+            .fill(
+                owner === "player"
+                    ? 0x222222
+                    : 0xff4444
+            );
 
         this.container.addChild(ball);
 
-        this.container.position.set(x, y);
+        this.container.position.set(
+            x,
+            y
+        );
 
-        this.directionX = Math.sin(rotation);
-        this.directionY = -Math.cos(rotation);
+        this.directionX =
+            Math.sin(rotation);
+
+        this.directionY =
+            -Math.cos(rotation);
 
         this.speed = speed;
         this.lifetime = lifetime;
-
         this.damage = damage;
+        this.owner = owner;
     }
 
     update(deltaTime: number) {
@@ -63,7 +79,7 @@ export class Projectile {
 
     destroy() {
         this.container.destroy({
-            children: true,
+            children: true
         });
     }
 }

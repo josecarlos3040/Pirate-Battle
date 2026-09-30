@@ -7,6 +7,7 @@ export const GAME_CONFIG = {
     match: {
         duration: 120,
         enemySpawnInterval: 3,
+        minimumEnemySpawnDistance: 300,
     },
 
     player: {
