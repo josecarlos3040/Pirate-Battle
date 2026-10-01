@@ -688,17 +688,14 @@ export class Game {
 
 		// ===================================
 
-		this.hud.update(
-			this.score,
-
-			this.player.health,
-
-			GAME_CONFIG.player.maxHealth,
-
-			this.remainingTime,
-
-			this.app.screen.width,
-		);
+        this.hud.update(
+            this.score,
+            this.player.health,
+            GAME_CONFIG.player.maxHealth,
+            this.remainingTime,
+            this.app.screen.width,
+            this.app.screen.height
+        );
 
 		this.effects = this.effects.filter((effect) => {
 			if (effect.isDead) {

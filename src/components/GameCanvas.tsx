@@ -191,6 +191,29 @@ type GameCanvasProps = {
 // GAME CANVAS
 // ========================================
 
+function isMobileDevice() {
+
+    return (
+        window.matchMedia(
+            "(pointer: coarse)"
+        ).matches ||
+        Math.min(
+            window.innerWidth,
+            window.innerHeight
+        ) <= 500
+    );
+}
+
+
+function getGameZoom() {
+
+    if (isMobileDevice()) {
+        return 0.75;
+    }
+
+    return 1;
+}
+
 export function GameCanvas({
     onGameOver,
     onPauseChange,
@@ -218,6 +241,11 @@ export function GameCanvas({
 
     useEffect(() => {
 
+        let resizeHandler:
+            (() => void) |
+            null =
+            null;
+
         let app:
             Application | null =
             null;
@@ -242,14 +270,29 @@ export function GameCanvas({
                     new Application();
 
 
+                const zoom =
+                    getGameZoom();
+
+
                 await pixiApp.init({
                     background:
                         "#35a6d9",
 
-                    resizeTo:
-                        window,
+                    width:
+                        window.innerWidth /
+                        zoom,
+
+                    height:
+                        window.innerHeight /
+                        zoom,
 
                     antialias:
+                        true,
+
+                    resolution:
+                        window.devicePixelRatio,
+
+                    autoDensity:
                         true
                 });
 
@@ -277,6 +320,48 @@ export function GameCanvas({
                     ?.appendChild(
                         pixiApp.canvas
                     );
+
+                pixiApp.canvas.style.width =
+                    "100vw";
+
+                pixiApp.canvas.style.height =
+                    "100vh";
+
+
+                resizeHandler =
+                    () => {
+
+                        const currentZoom =
+                            getGameZoom();
+
+
+                        pixiApp.renderer.resize(
+                            window.innerWidth /
+                                currentZoom,
+
+                            window.innerHeight /
+                                currentZoom
+                        );
+
+
+                        pixiApp.canvas.style.width =
+                            "100vw";
+
+                        pixiApp.canvas.style.height =
+                            "100vh";
+                    };
+
+
+                window.addEventListener(
+                    "resize",
+                    resizeHandler
+                );
+
+
+                window.addEventListener(
+                    "resize",
+                    resizeHandler
+                );
 
 
                 // ============================

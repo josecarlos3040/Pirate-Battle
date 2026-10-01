@@ -1,8 +1,16 @@
-import { useEffect } from "react";
+import {
+    useEffect,
+    useMemo,
+    useState
+} from "react";
 
 import type {
     GameResult
 } from "../game/core/Game";
+
+import type {
+    CreateMatchRequest
+} from "../api/types";
 
 import {
     useRegisterMatch
@@ -18,17 +26,136 @@ import {
     removePendingMatch
 } from "../storage/pendingMatches";
 
-import type {
-    CreateMatchRequest
-} from "../api/types";
+
+import panelMenuUrl
+    from "../assets/png/default/ui/menu/panel_menu.png";
+
+import buttonNormalUrl
+    from "../assets/png/default/ui/menu/button_primary_normal.png";
+
+import buttonHoverUrl
+    from "../assets/png/default/ui/menu/button_primary_hover.png";
+
+import buttonPressedUrl
+    from "../assets/png/default/ui/menu/button_primary_pressed.png";
+
+import waterTileUrl
+    from "../assets/png/default/tiles/tile_73.png";
 
 
 type ResultScreenProps = {
-    result: GameResult;
+    result:
+        GameResult;
 
-    onPlayAgain: () => void;
-    onMainMenu: () => void;
+    onPlayAgain:
+        () => void;
+
+    onMainMenu:
+        () => void;
 };
+
+
+type ResultButtonProps = {
+    children:
+        React.ReactNode;
+
+    onClick:
+        () => void;
+
+    disabled?:
+        boolean;
+};
+
+
+function ResultButton({
+    children,
+    onClick,
+    disabled = false
+}: ResultButtonProps) {
+
+    const [
+        state,
+        setState
+    ] = useState<
+        "normal" |
+        "hover" |
+        "pressed"
+    >(
+        "normal"
+    );
+
+
+    let image =
+        buttonNormalUrl;
+
+
+    if (
+        state === "hover"
+    ) {
+        image =
+            buttonHoverUrl;
+    }
+
+
+    if (
+        state === "pressed"
+    ) {
+        image =
+            buttonPressedUrl;
+    }
+
+
+    return (
+        <button
+            className="result-menu-button"
+
+            disabled={
+                disabled
+            }
+
+            style={{
+                backgroundImage:
+                    `url(${image})`
+            }}
+
+            onPointerEnter={() => {
+                if (!disabled) {
+                    setState(
+                        "hover"
+                    );
+                }
+            }}
+
+            onPointerLeave={() =>
+                setState(
+                    "normal"
+                )
+            }
+
+            onPointerDown={() => {
+                if (!disabled) {
+                    setState(
+                        "pressed"
+                    );
+                }
+            }}
+
+            onPointerUp={() => {
+                if (!disabled) {
+                    setState(
+                        "hover"
+                    );
+                }
+            }}
+
+            onClick={
+                onClick
+            }
+        >
+            {children}
+        </button>
+    );
+}
 
 
 export function ResultScreen({
@@ -41,157 +168,309 @@ export function ResultScreen({
         useRegisterMatch();
 
 
-    const matchRequest:
-        CreateMatchRequest = {
+    // ====================================
+    // MATCH REQUEST
+    // ====================================
 
-        id:
-            result.matchId,
+    const matchRequest =
+        useMemo<
+            CreateMatchRequest
+        >(
+            () => ({
+                id:
+                    result.matchId,
 
-        playerId:
-            getPlayerId(),
+                playerId:
+                    getPlayerId(),
 
-        playerName:
-            PLAYER_NAME,
+                playerName:
+                    PLAYER_NAME,
 
-        date:
-            new Date().toISOString(),
+                date:
+                    new Date()
+                        .toISOString(),
 
-        score:
-            result.score,
+                score:
+                    result.score,
 
-        duration:
-            result.timePlayed,
+                duration:
+                    result.timePlayed,
 
-        reason:
-            result.reason,
+                reason:
+                    result.reason,
 
-        config:
-            result.config
-    };
+                config: {
+                    ...result.config
+                }
+            }),
 
+            [
+                result.matchId,
+                result.score,
+                result.timePlayed,
+                result.reason,
+                result.config
+            ]
+        );
+
+
+    // ====================================
+    // REGISTER MATCH
+    // ====================================
 
     useEffect(() => {
+
         savePendingMatch(
             matchRequest
         );
 
+
         registerMatch.mutate(
             matchRequest,
+
             {
-                onSuccess: () => {
-                    removePendingMatch(
-                        matchRequest.id
-                    );
-                }
+                onSuccess:
+                    () => {
+
+                        removePendingMatch(
+                            matchRequest.id
+                        );
+                    }
             }
         );
-    }, [result.matchId]);
+
+        // A partida deve ser enviada uma
+        // única vez quando esta tela abre.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        result.matchId
+    ]);
+
+
+    // ====================================
+    // RETRY
+    // ====================================
+
+    const retryRegistration =
+        () => {
+
+            savePendingMatch(
+                matchRequest
+            );
+
+
+            registerMatch.mutate(
+                matchRequest,
+
+                {
+                    onSuccess:
+                        () => {
+
+                            removePendingMatch(
+                                matchRequest.id
+                            );
+                        }
+                }
+            );
+        };
+
+
+    // ====================================
+    // TIME
+    // ====================================
+
+    const totalSeconds =
+        Math.max(
+            0,
+
+            Math.round(
+                result.timePlayed
+            )
+        );
+
+
+    const minutes =
+        Math.floor(
+            totalSeconds /
+            60
+        );
+
+
+    const seconds =
+        totalSeconds %
+        60;
+
+
+    const formattedTime =
+        `${minutes
+            .toString()
+            .padStart(
+                2,
+                "0"
+            )}:${seconds
+            .toString()
+            .padStart(
+                2,
+                "0"
+            )}`;
+
+
+    // ====================================
+    // REASON
+    // ====================================
+
+    const resultReason =
+        result.reason === "time"
+            ? "TIME UP"
+            : "SHIP DESTROYED";
+
+
+    // ====================================
+    // REGISTRATION STATUS
+    // ====================================
+
+    let registrationText =
+        "SAVING...";
+
+
+    let registrationClass =
+        "saving";
+
+
+    if (
+        registerMatch.isSuccess
+    ) {
+
+        registrationText =
+            "MATCH SAVED";
+
+        registrationClass =
+            "success";
+    }
+
+
+    if (
+        registerMatch.isError
+    ) {
+
+        registrationText =
+            "SAVE FAILED";
+
+        registrationClass =
+            "error";
+    }
 
 
     return (
         <main
+            className="result-screen"
+
             style={{
-                textAlign: "center"
+                backgroundImage:
+                    `url(${waterTileUrl})`
             }}
         >
-            <h1>
-                Match Result
-            </h1>
+
+            <section
+                className="result-panel"
+
+                style={{
+                    backgroundImage:
+                        `url(${panelMenuUrl})`
+                }}
+            >
+
+                <h1 className="result-title">
+                    Battle Complete
+                </h1>
 
 
-            <p>
-                Score: {result.score}
-            </p>
+                <div className="result-score">
+                    {result.score}
+                </div>
 
 
-            <p>
-                Time Played:{" "}
-                {Math.floor(
-                    result.timePlayed
-                )}s
-            </p>
+                <div className="result-summary">
+
+                    <span>
+                        POINTS
+                    </span>
 
 
-            <p>
-                End Reason:{" "}
-                {
-                    result.reason ===
-                    "death"
-                        ? "Ship Destroyed"
-                        : "Time Expired"
-                }
-            </p>
+                    <span
+                        className="result-summary-separator"
+                        aria-hidden="true"
+                    >
+                        •
+                    </span>
 
 
-            <p>
-                Session Time:{" "}
-                {
-                    result.config
-                        .sessionTime
-                }s
-            </p>
+                    <span>
+                        {formattedTime}
+                    </span>
 
 
-            <p>
-                Spawn Time:{" "}
-                {
-                    result.config
-                        .enemySpawnTime
-                }s
-            </p>
+                    <span
+                        className="result-summary-separator"
+                        aria-hidden="true"
+                    >
+                        •
+                    </span>
 
 
-            <p>
-                Match Registration:{" "}
+                    <span>
+                        {resultReason}
+                    </span>
 
-                {registerMatch.isPending &&
-                    "Saving..."}
-
-                {registerMatch.isSuccess &&
-                    "Saved"}
-
-                {registerMatch.isError &&
-                    "Failed"}
-            </p>
+                </div>
 
 
-            {registerMatch.isError && (
-                <button
-                    onClick={() => {
-                        registerMatch.mutate(
-                            matchRequest,
-                            {
-                                onSuccess:
-                                    () => {
-                                        removePendingMatch(
-                                            matchRequest.id
-                                        );
-                                    }
-                            }
-                        );
-                    }}
+                <div
+                    className={
+                        `result-registration ${registrationClass}`
+                    }
+                    aria-live="polite"
                 >
-                    Retry Registration
-                </button>
-            )}
+                    {registrationText}
+                </div>
 
 
-            <button
-                onClick={
-                    onPlayAgain
-                }
-            >
-                Play Again
-            </button>
+                <div className="result-actions">
+
+                    {registerMatch.isError && (
+
+                        <ResultButton
+                            onClick={
+                                retryRegistration
+                            }
+                        >
+                            RETRY SAVE
+                        </ResultButton>
+
+                    )}
 
 
-            <button
-                onClick={
-                    onMainMenu
-                }
-            >
-                Main Menu
-            </button>
+                    <ResultButton
+                        onClick={
+                            onPlayAgain
+                        }
+                    >
+                        PLAY AGAIN
+                    </ResultButton>
+
+
+                    <ResultButton
+                        onClick={
+                            onMainMenu
+                        }
+                    >
+                        MAIN MENU
+                    </ResultButton>
+
+                </div>
+
+            </section>
+
         </main>
     );
 }

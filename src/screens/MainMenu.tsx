@@ -1,120 +1,246 @@
-import type {
-    GameResult
-} from "../game/core/Game";
+import {
+    useState
+} from "react";
+
+import titlePirateBattleUrl
+    from "../assets/png/default/ui/menu/title_pirate_battle.png";
+
+import panelMenuUrl
+    from "../assets/png/default/ui/menu/panel_menu.png";
+
+import buttonNormalUrl
+    from "../assets/png/default/ui/menu/button_primary_normal.png";
+
+import buttonHoverUrl
+    from "../assets/png/default/ui/menu/button_primary_hover.png";
+
+import buttonPressedUrl
+    from "../assets/png/default/ui/menu/button_primary_pressed.png";
+
 
 type MainMenuProps = {
     onPlay: () => void;
     onOptions: () => void;
     onRanking: () => void;
     onHistory: () => void;
-
-    lastResult:
-        GameResult | null;
 };
+
+
+type PirateButtonProps = {
+    children: React.ReactNode;
+    onClick: () => void;
+};
+
+
+function PirateButton({
+    children,
+    onClick
+}: PirateButtonProps) {
+
+    const [
+        state,
+        setState
+    ] = useState<
+        "normal" |
+        "hover" |
+        "pressed"
+    >(
+        "normal"
+    );
+
+
+    let image =
+        buttonNormalUrl;
+
+
+    if (
+        state === "hover"
+    ) {
+        image =
+            buttonHoverUrl;
+    }
+
+
+    if (
+        state === "pressed"
+    ) {
+        image =
+            buttonPressedUrl;
+    }
+
+
+    return (
+        <button
+            className="pirate-menu-button"
+
+            style={{
+                backgroundImage:
+                    `url(${image})`
+            }}
+
+            onPointerEnter={() =>
+                setState(
+                    "hover"
+                )
+            }
+
+            onPointerLeave={() =>
+                setState(
+                    "normal"
+                )
+            }
+
+            onPointerDown={() =>
+                setState(
+                    "pressed"
+                )
+            }
+
+            onPointerUp={() =>
+                setState(
+                    "hover"
+                )
+            }
+
+            onClick={onClick}
+        >
+            {children}
+        </button>
+    );
+}
+
 
 export function MainMenu({
     onPlay,
     onOptions,
     onRanking,
-    onHistory,
-    lastResult
+    onHistory
 }: MainMenuProps) {
+
     return (
-        <main
-            style={{
-                width: "100vw",
-                minHeight: "100vh",
+        <main className="pirate-menu-screen">
 
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+            <section
+                className="pirate-menu-panel"
 
-                background:
-                    "#168bc2",
-
-                color: "white"
-            }}
-        >
-            <div
                 style={{
-                    width: "420px",
-                    textAlign: "center"
+                    backgroundImage:
+                        `url(${panelMenuUrl})`
                 }}
             >
-                <h1>
-                    Pirate Battle
-                </h1>
 
-                <button
-                    onClick={onPlay}
-                >
-                    Play
-                </button>
+                <img
+                    className="pirate-title"
+                    src={
+                        titlePirateBattleUrl
+                    }
+                    alt="Pirate Battle"
+                />
 
-                <button
-                    onClick={onOptions}
-                >
-                    Options
-                </button>
 
-                <hr />
+                <div className="pirate-main-actions">
 
-                <h2>
-                    Controls
-                </h2>
+                    <PirateButton
+                        onClick={
+                            onPlay
+                        }
+                    >
+                        PLAY
+                    </PirateButton>
 
-                <p>
-                    W — Move Forward
-                </p>
 
-                <p>
-                    A / D — Rotate
-                </p>
+                    <PirateButton
+                        onClick={
+                            onOptions
+                        }
+                    >
+                        OPTIONS
+                    </PirateButton>
 
-                <p>
-                    Space — Front Cannon
-                </p>
+                </div>
 
-                <p>
-                    Q / E — Side Cannons
-                </p>
 
-                <p>
-                    ESC — Pause
-                </p>
+                <div className="pirate-secondary-actions">
 
-                <hr />
+                    <PirateButton
+                        onClick={
+                            onRanking
+                        }
+                    >
+                        RANKING
+                    </PirateButton>
 
-                <button
-                    onClick={onRanking}
-                >
-                    Ranking
-                </button>
 
-                <button
-                    onClick={onHistory}
-                >
-                    Match History
-                </button>
+                    <PirateButton
+                        onClick={
+                            onHistory
+                        }
+                    >
+                        MATCH HISTORY
+                    </PirateButton>
 
-                {lastResult && (
-                    <>
-                        <hr />
+                </div>
 
-                        <h3>
-                            Last Match
-                        </h3>
+
+                <div className="pirate-instructions">
+
+                    <h2>
+                        HOW TO PLAY
+                    </h2>
+
+
+                    <div className="pirate-controls-grid">
+
+                        <span>
+                            W
+                        </span>
 
                         <p>
-                            Score:{" "}
-                            {
-                                lastResult
-                                    .score
-                            }
+                            Move forward
                         </p>
-                    </>
-                )}
-            </div>
+
+
+                        <span>
+                            A / D
+                        </span>
+
+                        <p>
+                            Rotate ship
+                        </p>
+
+
+                        <span>
+                            SPACE
+                        </span>
+
+                        <p>
+                            Fire front cannon
+                        </p>
+
+
+                        <span>
+                            Q / E
+                        </span>
+
+                        <p>
+                            Fire side cannons
+                        </p>
+
+
+                        <span>
+                            ESC
+                        </span>
+
+                        <p>
+                            Pause
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
         </main>
     );
 }

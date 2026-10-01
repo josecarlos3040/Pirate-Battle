@@ -1,9 +1,14 @@
 import {
-    useCallback,
     useState
 } from "react";
 
-import { GameCanvas } from "../components/GameCanvas";
+import {
+    GameCanvas
+} from "../components/GameCanvas";
+
+import {
+    MobileControls
+} from "../components/MobileControls";
 
 import type {
     GameResult
@@ -13,110 +18,230 @@ import type {
     GameOptions
 } from "../game/config/gameOptions";
 
-import {
-    MobileControls
-} from "../components/MobileControls";
+
+import panelMenuUrl
+    from "../assets/png/default/ui/menu/panel_menu.png";
+
+import buttonNormalUrl
+    from "../assets/png/default/ui/menu/button_primary_normal.png";
+
+import buttonHoverUrl
+    from "../assets/png/default/ui/menu/button_primary_hover.png";
+
+import buttonPressedUrl
+    from "../assets/png/default/ui/menu/button_primary_pressed.png";
+
 
 type GameScreenProps = {
-    options: GameOptions;
+    options:
+        GameOptions;
 
     onGameOver: (
-        result: GameResult
+        result:
+            GameResult
     ) => void;
 
-    onMainMenu: () => void;
+    onMainMenu:
+        () => void;
 };
+
+
+type PauseButtonProps = {
+    children:
+        React.ReactNode;
+
+    onClick:
+        () => void;
+};
+
+
+function PauseButton({
+    children,
+    onClick
+}: PauseButtonProps) {
+
+    const [
+        state,
+        setState
+    ] = useState<
+        "normal" |
+        "hover" |
+        "pressed"
+    >(
+        "normal"
+    );
+
+
+    let image =
+        buttonNormalUrl;
+
+
+    if (
+        state === "hover"
+    ) {
+
+        image =
+            buttonHoverUrl;
+    }
+
+
+    if (
+        state === "pressed"
+    ) {
+
+        image =
+            buttonPressedUrl;
+    }
+
+
+    return (
+        <button
+            className="pause-menu-button"
+
+            style={{
+                backgroundImage:
+                    `url(${image})`
+            }}
+
+            onPointerEnter={() =>
+                setState(
+                    "hover"
+                )
+            }
+
+            onPointerLeave={() =>
+                setState(
+                    "normal"
+                )
+            }
+
+            onPointerDown={() =>
+                setState(
+                    "pressed"
+                )
+            }
+
+            onPointerUp={() =>
+                setState(
+                    "hover"
+                )
+            }
+
+            onClick={
+                onClick
+            }
+        >
+            {children}
+        </button>
+    );
+}
+
 
 export function GameScreen({
     options,
     onGameOver,
     onMainMenu
 }: GameScreenProps) {
-    const [paused, setPaused] =
-        useState(false);
 
-    const handleGameOver =
-        useCallback(
-            (result: GameResult) => {
-                setPaused(false);
+    const [
+        paused,
+        setPaused
+    ] = useState(
+        false
+    );
 
-                onGameOver(result);
-            },
-            [onGameOver]
-        );
 
     return (
-        <div
-            style={{
-                width: "100vw",
-                height: "100vh",
-                position: "relative",
-                overflow: "hidden"
-            }}
-        >
+        <main className="game-screen">
+
             <GameCanvas
-                options={options}
-                onGameOver={
-                    handleGameOver
+                options={
+                    options
                 }
+
+                paused={
+                    paused
+                }
+
+                onGameOver={
+                    onGameOver
+                }
+
                 onPauseChange={
                     setPaused
                 }
-                paused={paused}
             />
+
+
             <MobileControls
                 onPause={() =>
-                    setPaused(true)
+                    setPaused(
+                        true
+                    )
                 }
             />
 
+
             {paused && (
+
                 <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-
-                        background:
-                            "rgba(0,0,0,0.65)",
-
-                        zIndex: 1000
-                    }}
+                    className="pause-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="pause-title"
                 >
-                    <div
+
+                    <section
+                        className="pause-panel"
+
                         style={{
-                            background: "white",
-                            color: "#111",
-
-                            padding: "32px",
-                            borderRadius: "12px",
-
-                            textAlign: "center"
+                            backgroundImage:
+                                `url(${panelMenuUrl})`
                         }}
                     >
-                        <h1>Paused</h1>
 
-                        <button
-                            onClick={() =>
-                                setPaused(false)
-                            }
+                        <h1
+                            id="pause-title"
+                            className="pause-title"
                         >
-                            Resume
-                        </button>
+                            Paused
+                        </h1>
 
-                        <button
-                            onClick={
-                                onMainMenu
-                            }
-                        >
-                            Main Menu
-                        </button>
-                    </div>
+
+                        <p className="pause-subtitle">
+                            Ready when you are.
+                        </p>
+
+
+                        <div className="pause-actions">
+
+                            <PauseButton
+                                onClick={() =>
+                                    setPaused(
+                                        false
+                                    )
+                                }
+                            >
+                                RESUME
+                            </PauseButton>
+
+
+                            <PauseButton
+                                onClick={
+                                    onMainMenu
+                                }
+                            >
+                                MAIN MENU
+                            </PauseButton>
+
+                        </div>
+
+                    </section>
+
                 </div>
+
             )}
-        </div>
+
+        </main>
     );
 }

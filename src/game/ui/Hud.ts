@@ -542,15 +542,12 @@ export class Hud {
 
     public update(
         score: number,
-
         currentHealth: number,
-
         maxHealth: number,
-
         remainingTime: number,
-
-        screenWidth: number
-    ) {
+        screenWidth: number,
+        screenHeight: number
+    ){
 
         // =================================
         // HEALTH
@@ -661,6 +658,69 @@ export class Hud {
         // =================================
         // RESPONSIVE LAYOUT
         // =================================
+        const isLandscapeMobile =
+            screenWidth <= 950 &&
+            screenHeight <= 500;
+
+
+        if (isLandscapeMobile) {
+
+            // =================================
+            // LANDSCAPE MOBILE
+            // =================================
+
+            this.healthContainer
+                .scale
+                .set(0.62);
+
+            this.scoreContainer
+                .scale
+                .set(0.68);
+
+            this.timerContainer
+                .scale
+                .set(0.68);
+
+            this.pauseContainer
+                .scale
+                .set(0.72);
+
+
+            this.healthContainer
+                .position
+                .set(
+                    8,
+                    8
+                );
+
+
+            this.scoreContainer
+                .position
+                .set(
+                    screenWidth - 245,
+                    10
+                );
+
+
+            this.timerContainer
+                .position
+                .set(
+                    screenWidth - 155,
+                    10
+                );
+
+
+            this.pauseContainer
+                .position
+                .set(
+                    screenWidth - 31,
+                    25
+                );
+
+
+            return;
+        }
+
 
         if (
             screenWidth < 700
