@@ -1,164 +1,129 @@
-import type {
-    PointerEvent
-} from "react";
+import type { PointerEvent } from 'react';
 
 type MobileControlsProps = {
-    onPause: () => void;
+	onPause: () => void;
 };
 
-export function MobileControls({
-    onPause
-}: MobileControlsProps) {
+export function MobileControls({ onPause }: MobileControlsProps) {
+	const pressKey = (code: string) => {
+		window.dispatchEvent(
+			new KeyboardEvent('keydown', {
+				code,
+			}),
+		);
+	};
 
-    const pressKey = (
-        code: string
-    ) => {
-        window.dispatchEvent(
-            new KeyboardEvent(
-                "keydown",
-                {
-                    code
-                }
-            )
-        );
-    };
+	const releaseKey = (code: string) => {
+		window.dispatchEvent(
+			new KeyboardEvent('keyup', {
+				code,
+			}),
+		);
+	};
 
-    const releaseKey = (
-        code: string
-    ) => {
-        window.dispatchEvent(
-            new KeyboardEvent(
-                "keyup",
-                {
-                    code
-                }
-            )
-        );
-    };
+	const getButtonEvents = (code: string) => ({
+		onPointerDown: (event: PointerEvent) => {
+			event.preventDefault();
 
-    const getButtonEvents = (
-        code: string
-    ) => ({
-        onPointerDown: (
-            event:
-                PointerEvent
-        ) => {
-            event.preventDefault();
+			pressKey(code);
+		},
 
-            pressKey(code);
-        },
+		onPointerUp: (event: PointerEvent) => {
+			event.preventDefault();
 
-        onPointerUp: (
-            event:
-                PointerEvent
-        ) => {
-            event.preventDefault();
+			releaseKey(code);
+		},
 
-            releaseKey(code);
-        },
+		onPointerCancel: () => {
+			releaseKey(code);
+		},
 
-        onPointerCancel: () => {
-            releaseKey(code);
-        },
+		onPointerLeave: () => {
+			releaseKey(code);
+		},
+	});
 
-        onPointerLeave: () => {
-            releaseKey(code);
-        }
-    });
-
-    return (
-        <div
-            className="
+	return (
+		<div
+			className="
                 mobile-controls
             "
-        >
-            <button
-                className="
+		>
+			<button
+				className="
                     mobile-pause
                 "
-                aria-label="Pause game"
-                onClick={onPause}
-            >
-                II
-            </button>
+				aria-label="Pause game"
+				onClick={onPause}
+			>
+				II
+			</button>
 
-            <div
-                className="
+			<div
+				className="
                     mobile-movement
                 "
-            >
-                <button
-                    aria-label="
+			>
+				<button
+					aria-label="
                         Rotate left
                     "
-                    {...getButtonEvents(
-                        "KeyA"
-                    )}
-                >
-                    ←
-                </button>
+					{...getButtonEvents('KeyA')}
+				>
+					←
+				</button>
 
-                <button
-                    aria-label="
+				<button
+					aria-label="
                         Move forward
                     "
-                    {...getButtonEvents(
-                        "KeyW"
-                    )}
-                >
-                    ↑
-                </button>
+					{...getButtonEvents('KeyW')}
+				>
+					↑
+				</button>
 
-                <button
-                    aria-label="
+				<button
+					aria-label="
                         Rotate right
                     "
-                    {...getButtonEvents(
-                        "KeyD"
-                    )}
-                >
-                    →
-                </button>
-            </div>
+					{...getButtonEvents('KeyD')}
+				>
+					→
+				</button>
+			</div>
 
-            <div
-                className="
+			<div
+				className="
                     mobile-weapons
                 "
-            >
-                <button
-                    aria-label="
+			>
+				<button
+					aria-label="
                         Fire left cannons
                     "
-                    {...getButtonEvents(
-                        "KeyQ"
-                    )}
-                >
-                    L
-                </button>
+					{...getButtonEvents('KeyQ')}
+				>
+					L
+				</button>
 
-                <button
-                    aria-label="
+				<button
+					aria-label="
                         Fire front cannon
                     "
-                    {...getButtonEvents(
-                        "Space"
-                    )}
-                >
-                    FIRE
-                </button>
+					{...getButtonEvents('Space')}
+				>
+					FIRE
+				</button>
 
-                <button
-                    aria-label="
+				<button
+					aria-label="
                         Fire right cannons
                     "
-                    {...getButtonEvents(
-                        "KeyE"
-                    )}
-                >
-                    R
-                </button>
-            </div>
-        </div>
-    );
+					{...getButtonEvents('KeyE')}
+				>
+					R
+				</button>
+			</div>
+		</div>
+	);
 }

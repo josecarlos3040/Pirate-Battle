@@ -1,141 +1,163 @@
-import { Container, Sprite } from "pixi.js";
-import type { Texture } from "pixi.js";
+import { Container, Sprite } from 'pixi.js';
 
-import { GAME_CONFIG } from "../config/gameConfig";
-import { HealthBar } from "../ui/HealthBar";
+import type { Texture } from 'pixi.js';
+
+import { GAME_CONFIG } from '../config/gameConfig';
+
+import { HealthBar } from '../ui/HealthBar';
+
+import { DamageFire } from '../effects/DamageFire';
 
 export class Player {
-    public readonly container: Container;
+	public readonly container: Container;
 
-    public readonly collisionRadius = 30;
+	public readonly collisionRadius = 30;
 
-    public health: number = GAME_CONFIG.player.maxHealth;
-        private healthBar: HealthBar;
+	public health: number = GAME_CONFIG.player.maxHealth;
 
-    public isDead = false;
+	public isDead = false;
 
-    private sprite: Sprite;
+	private sprite: Sprite;
 
+	private healthBar: HealthBar;
 
-    private speed = GAME_CONFIG.player.movementSpeed;
-    private rotationSpeed = GAME_CONFIG.player.rotationSpeed;
+	private damageFire: DamageFire;
 
-    constructor(texture: Texture) {
-        this.container = new Container();
+	private normalTexture: Texture;
 
-        this.sprite = new Sprite(texture);
+	private damagedTexture: Texture;
 
-        this.sprite.anchor.set(0.5);
+	private speed = GAME_CONFIG.player.movementSpeed;
 
-        // Seu sprite estava invertido, então mantemos isso
-        this.sprite.rotation = Math.PI;
+	private rotationSpeed = GAME_CONFIG.player.rotationSpeed;
 
-        this.sprite.width = 70;
-        this.sprite.height = 100;
+	constructor(texture: Texture, damagedTexture: Texture, fireTextures: Texture[]) {
+		this.container = new Container();
 
-        this.container.addChild(this.sprite);
+		this.normalTexture = texture;
 
-        this.healthBar = new HealthBar(70, 8);
+		this.damagedTexture = damagedTexture;
 
-        this.healthBar.container.position.set(
-            0,
-            -60
-        );
+		// =========================
+		// SHIP
+		// =========================
 
-        this.container.addChild(
-            this.healthBar.container
-        );
+		this.sprite = new Sprite(this.normalTexture);
 
-        this.healthBar.update(
-            this.health,
-            GAME_CONFIG.player.maxHealth
-        );
-    }
+		this.sprite.anchor.set(0.5);
 
-    update(
-        deltaTime: number,
-        forward: boolean,
-        left: boolean,
-        right: boolean,
-        arenaWidth: number,
-        arenaHeight: number
-    ) {
-        if (this.isDead) {
-            return;
-        }
+		this.sprite.rotation = Math.PI;
 
-        // ROTACIONAR
-        if (left) {
-            this.container.rotation -=
-                this.rotationSpeed * deltaTime;
-        }
+		this.sprite.width = 70;
 
-        if (right) {
-            this.container.rotation +=
-                this.rotationSpeed * deltaTime;
-        }
+		this.sprite.height = 100;
 
-        // MOVIMENTAR
-        if (forward) {
-            this.container.x +=
-                Math.sin(this.container.rotation) *
-                this.speed *
-                deltaTime;
+		this.container.addChild(this.sprite);
 
-            this.container.y -=
-                Math.cos(this.container.rotation) *
-                this.speed *
-                deltaTime;
-        }
+		// =========================
+		// FIRE
+		// =========================
 
-        // LIMITES DA TELA
-        const margin = 40;
+		this.damageFire = new DamageFire(fireTextures);
 
-        this.container.x = Math.max(
-            margin,
-            Math.min(
-                arenaWidth - margin,
-                this.container.x
-            )
-        );
+		this.damageFire.setRandomOffset(-14, 14, -18, 16);
 
-        this.container.y = Math.max(
-            margin,
-            Math.min(
-                arenaHeight - margin,
-                this.container.y
-            )
-        );
-    }
+		this.container.addChild(this.damageFire.container);
 
-takeDamage(amount: number) {
-    if (this.isDead) {
-        return;
-    }
+		// =========================
+		// HEALTH BAR
+		// =========================
 
-    this.health -= amount;
+		this.healthBar = new HealthBar(70, 8);
 
-    this.healthBar.update(
-        this.health,
-        GAME_CONFIG.player.maxHealth
-    );
+		this.healthBar.container.position.set(0, -60);
 
-    console.log(
-        "Player HP:",
-        this.health
-    );
+		this.container.addChild(this.healthBar.container);
 
-    if (this.health <= 0) {
-        this.health = 0;
+		this.updateDamageVisual();
+	}
 
-        this.healthBar.update(
-            this.health,
-            GAME_CONFIG.player.maxHealth
-        );
+	public update(
+		deltaTime: number,
+		forward: boolean,
+		left: boolean,
+		right: boolean,
+		arenaWidth: number,
+		arenaHeight: number,
+	) {
+		if (this.isDead) {
+			return;
+		}
 
-        this.isDead = true;
+		if (left) {
+			this.container.rotation -= this.rotationSpeed * deltaTime;
+		}
 
-        console.log("PLAYER DEAD");
-    }
-}
+		if (right) {
+			this.container.rotation += this.rotationSpeed * deltaTime;
+		}
+
+		if (forward) {
+			this.container.x += Math.sin(this.container.rotation) * this.speed * deltaTime;
+
+			this.container.y -= Math.cos(this.container.rotation) * this.speed * deltaTime;
+		}
+
+		const margin = 40;
+
+		this.container.x = Math.max(
+			margin,
+			Math.min(
+				arenaWidth - margin,
+
+				this.container.x,
+			),
+		);
+
+		this.container.y = Math.max(
+			margin,
+			Math.min(
+				arenaHeight - margin,
+
+				this.container.y,
+			),
+		);
+	}
+
+	public takeDamage(amount: number) {
+		this.health -= amount;
+
+		if (this.health < 0) {
+			this.health = 0;
+		}
+
+		this.healthBar.update(this.health, GAME_CONFIG.player.maxHealth);
+
+		this.updateDamageVisual();
+
+		if (this.health <= 0) {
+			this.isDead = true;
+		}
+	}
+
+	private updateDamageVisual() {
+		const percentage = this.health / GAME_CONFIG.player.maxHealth;
+
+		// =========================
+		// NORMAL
+		// =========================
+
+		if (percentage > 0.6) {
+			this.sprite.texture = this.normalTexture;
+		} else {
+			// =====================
+			// DAMAGED VERSION
+			// =====================
+
+			this.sprite.texture = this.damagedTexture;
+		}
+
+		// FIRE
+		this.damageFire.update(this.health, GAME_CONFIG.player.maxHealth);
+	}
 }

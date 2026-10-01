@@ -1,174 +1,205 @@
-import {
-    Container,
-    Sprite
-} from "pixi.js";
+import { Container, Sprite } from 'pixi.js';
 
-import type {
-    Texture
-} from "pixi.js";
+import type { Texture } from 'pixi.js';
 
+import { GAME_CONFIG } from '../config/gameConfig';
 
-import { GAME_CONFIG } from "../config/gameConfig";
-import { HealthBar } from "../ui/HealthBar";
+import { HealthBar } from '../ui/HealthBar';
+
+import { DamageFire } from '../effects/DamageFire';
 
 export class Chaser {
-    public readonly container: Container;
+	public readonly container: Container;
 
-    public readonly collisionRadius = 30;
+	public readonly collisionRadius = 30;
 
-    public health: number = GAME_CONFIG.chaser.maxHealth;
-    private healthBar: HealthBar;
+	public health: number = GAME_CONFIG.chaser.maxHealth;
 
-    public isDead = false;
+	public isDead = false;
 
-    private speed = GAME_CONFIG.chaser.movementSpeed;
+	private sprite: Sprite;
 
-    private rotationSpeed = GAME_CONFIG.chaser.rotationSpeed;
+	private healthBar: HealthBar;
 
-    constructor(
-        x: number,
-        y: number,
-        texture: Texture
-    ) {
-        this.container =
-            new Container();
+	private damageFire: DamageFire;
 
-        const sprite =
-            new Sprite(texture);
+	private normalTexture: Texture;
 
-        sprite.anchor.set(0.5);
+	private damagedTexture: Texture;
 
-        sprite.width = 65;
-        sprite.height = 90;
+	private speed = GAME_CONFIG.chaser.movementSpeed;
 
-        // Se vier invertido:
-        sprite.rotation = Math.PI;
+	private rotationSpeed = GAME_CONFIG.chaser.rotationSpeed;
 
-        this.container.addChild(
-            sprite
-        );
+	constructor(
+		x: number,
+		y: number,
 
-        this.healthBar =
-            new HealthBar(55, 6);
+		texture: Texture,
+		damagedTexture: Texture,
 
-        this.healthBar.container.position.set(
-            0,
-            -55
-        );
+		fireTextures: Texture[],
+	) {
+		this.container = new Container();
 
-        this.container.addChild(
-            this.healthBar.container
-        );
+		this.container.position.set(x, y);
 
-        this.healthBar.update(
-            this.health,
-            GAME_CONFIG.chaser.maxHealth
-        );
+		this.normalTexture = texture;
 
-        this.container.position.set(
-            x,
-            y
-        );
-    }
+		this.damagedTexture = damagedTexture;
 
-    update(
-        deltaTime: number,
-        playerX: number,
-        playerY: number
-    ) {
-        if (this.isDead) {
-            return;
-        }
+		// ================================
+		// SHIP SPRITE
+		// ================================
 
-        const dx =
-            playerX -
-            this.container.x;
+		this.sprite = new Sprite(this.normalTexture);
 
-        const dy =
-            playerY -
-            this.container.y;
+		this.sprite.anchor.set(0.5);
 
-        // Como nosso "forward" usa
-        // sin(rotation), -cos(rotation),
-        // esse é o ângulo correto
-        const targetRotation =
-            Math.atan2(dx, -dy);
+		// Ajuste caso o sprite esteja
+		// virado para o lado contrário.
+		this.sprite.rotation = Math.PI;
 
-        let rotationDifference =
-            targetRotation -
-            this.container.rotation;
+		this.sprite.width = 65;
 
-        // Mantém diferença entre -PI e +PI
-        rotationDifference =
-            Math.atan2(
-                Math.sin(rotationDifference),
-                Math.cos(rotationDifference)
-            );
+		this.sprite.height = 90;
 
-        const maxRotation =
-            this.rotationSpeed *
-            deltaTime;
+		this.container.addChild(this.sprite);
 
-        rotationDifference =
-            Math.max(
-                -maxRotation,
-                Math.min(
-                    maxRotation,
-                    rotationDifference
-                )
-            );
+		// ================================
+		// DAMAGE FIRE
+		// ================================
 
-        this.container.rotation +=
-            rotationDifference;
+		this.damageFire = new DamageFire(fireTextures);
 
-        // Anda para frente
-        this.container.x +=
-            Math.sin(
-                this.container.rotation
-            ) *
-            this.speed *
-            deltaTime;
+		this.damageFire.setRandomOffset(-12, 12, -16, 14);
 
-        this.container.y -=
-            Math.cos(
-                this.container.rotation
-            ) *
-            this.speed *
-            deltaTime;
-    }
+		this.container.addChild(this.damageFire.container);
 
-    takeDamage(amount: number) {
-        if (this.isDead) {
-            return;
-        }
+		// ================================
+		// HEALTH BAR
+		// ================================
 
-        this.health -= amount;
+		this.healthBar = new HealthBar(55, 6);
 
-        this.healthBar.update(
-            this.health,
-            GAME_CONFIG.chaser.maxHealth
-        );
+		this.healthBar.container.position.set(0, -55);
 
-        console.log(
-            "Chaser HP:",
-            this.health
-        );
+		this.container.addChild(this.healthBar.container);
 
-        if (this.health <= 0) {
-            this.health = 0;
+		this.healthBar.update(this.health, GAME_CONFIG.chaser.maxHealth);
 
-            this.healthBar.update(
-                0,
-                GAME_CONFIG.chaser.maxHealth
-            );
+		this.updateDamageVisual();
+	}
 
-            this.isDead = true;
-        }
-    }
+	// ==================================
+	// UPDATE
+	// ==================================
 
-    destroy() {
-        this.container.destroy({
-            children: true,
-        });
-    }
+	public update(deltaTime: number, playerX: number, playerY: number) {
+		if (this.isDead) {
+			return;
+		}
+
+		const dx = playerX - this.container.x;
+
+		const dy = playerY - this.container.y;
+
+		// Rotação necessária para apontar
+		// o navio para o player.
+		const targetRotation = Math.atan2(dx, -dy);
+
+		let rotationDifference = targetRotation - this.container.rotation;
+
+		// Normaliza para -PI / PI.
+		rotationDifference = Math.atan2(
+			Math.sin(rotationDifference),
+
+			Math.cos(rotationDifference),
+		);
+
+		const maxRotation = this.rotationSpeed * deltaTime;
+
+		rotationDifference = Math.max(
+			-maxRotation,
+
+			Math.min(maxRotation, rotationDifference),
+		);
+
+		this.container.rotation += rotationDifference;
+
+		// ================================
+		// FORWARD MOVEMENT
+		// ================================
+
+		this.container.x += Math.sin(this.container.rotation) * this.speed * deltaTime;
+
+		this.container.y -= Math.cos(this.container.rotation) * this.speed * deltaTime;
+	}
+
+	// ==================================
+	// DAMAGE
+	// ==================================
+
+	public takeDamage(amount: number) {
+		if (this.isDead) {
+			return;
+		}
+
+		this.health -= amount;
+
+		if (this.health < 0) {
+			this.health = 0;
+		}
+
+		this.healthBar.update(this.health, GAME_CONFIG.chaser.maxHealth);
+
+		this.updateDamageVisual();
+
+		if (this.health <= 0) {
+			this.isDead = true;
+		}
+	}
+
+	// ==================================
+	// DAMAGE VISUAL
+	// ==================================
+
+	private updateDamageVisual() {
+		const percentage = this.health / GAME_CONFIG.chaser.maxHealth;
+
+		// ------------------------------
+		// HEALTHY
+		// ------------------------------
+
+		if (percentage > 0.6) {
+			this.sprite.texture = this.normalTexture;
+		} else {
+			// --------------------------
+			// DAMAGED SHIP
+			// --------------------------
+
+			this.sprite.texture = this.damagedTexture;
+		}
+
+		// Garante que mudar a textura
+		// não altere o tamanho do barco.
+		this.sprite.width = 65;
+
+		this.sprite.height = 90;
+
+		// Controla fogo com base no HP.
+		this.damageFire.update(this.health, GAME_CONFIG.chaser.maxHealth);
+	}
+
+	// ==================================
+	// DESTROY
+	// ==================================
+
+	public destroy() {
+		this.damageFire.destroy();
+
+		this.container.destroy({
+			children: true,
+		});
+	}
 }

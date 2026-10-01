@@ -1,1326 +1,1351 @@
-import type {
-    Application
-} from "pixi.js";
+import type { Application } from "pixi.js";
 
 import { InputManager } from "./InputManager";
+
 import { Player } from "../entities/Player";
+
 import { Projectile } from "../entities/Projectile";
+
 import { Chaser } from "../entities/Chaser";
+
 import { Shooter } from "../entities/Shooter";
+
 import { Island } from "../entities/Island";
 
 import { Hud } from "../ui/Hud";
+
 import type { GameAssets } from "./GameAssets";
+
 import type { GameOptions } from "../config/gameOptions";
+
+import { Ocean } from "../world/Ocean";
 
 import { GAME_CONFIG } from "../config/gameConfig";
 
+import { GameEffect } from "../effects/GameEffect";
 
-export type GameEndReason =
-    "time" | "death";
+import { AudioManager } from "../audio/AudioManager";
+
+export type GameEndReason = "time" | "death";
 
 export type GameResult = {
-    matchId: string;
+	matchId: string;
 
-    score: number;
-    timePlayed: number;
-    reason: GameEndReason;
+	score: number;
 
-    config: GameOptions;
+	timePlayed: number;
+
+	reason: GameEndReason;
+
+	config: GameOptions;
 };
 
 export class Game {
-    private app: Application;
+	private app: Application;
 
-    private input: InputManager;
-    private player: Player;
-    private assets: GameAssets;
+	private input: InputManager;
 
-    private projectiles: Projectile[] = [];
-    private chasers: Chaser[] = [];
-    private shooters: Shooter[] = [];
-    private islands: Island[] = [];
+	private player: Player;
 
-    private score = 0;
-    private hud: Hud;
+	private assets: GameAssets;
 
-    private isGameOver = false;
-    private isPaused = false;
+	private projectiles: Projectile[] = [];
 
-    private onGameOver: (
-        result: GameResult
-    ) => void;
+	private chasers: Chaser[] = [];
 
-    private onPauseChange: (
-        paused: boolean
-    ) => void;
+	private shooters: Shooter[] = [];
 
+	private islands: Island[] = [];
 
+	private ocean: Ocean;
 
-    private frontShootCooldown = 0;
-    private leftShootCooldown = 0;
-    private rightShootCooldown = 0;
+	private effects: GameEffect[] = [];
 
-    private matchOptions: GameOptions;
+	private score = 0;
 
-    private remainingTime: number;
-    private enemySpawnTimer: number;
+	private hud: Hud;
 
+	private isGameOver = false;
 
-    constructor(
-        app: Application,
-        assets: GameAssets,
-        options: GameOptions,
+	private isPaused = false;
 
-        
-        onGameOver: (
-            result: GameResult
-        ) => void,
+	private onGameOver: (result: GameResult) => void;
 
-        onPauseChange: (
-            paused: boolean
-        ) => void
-    ) 
-    {
-        this.app = app;
+	private onPauseChange: (paused: boolean) => void;
 
-        this.onGameOver =
-            onGameOver;
+	private frontShootCooldown = 0;
 
-        this.onPauseChange =
-            onPauseChange;
+	private leftShootCooldown = 0;
 
-        this.app.stage.sortableChildren = true;
-        
-        this.assets = assets;
+	private rightShootCooldown = 0;
 
-        this.matchOptions = {
-            ...options
-        };
+	private matchOptions: GameOptions;
 
-        this.remainingTime =
-            this.matchOptions.sessionTime;
+	private remainingTime: number;
 
-        this.enemySpawnTimer =
-            this.matchOptions.enemySpawnTime;
+	private enemySpawnTimer: number;
 
+    private audio: AudioManager;
 
+	constructor(
+		app: Application,
 
-        this.input = new InputManager();
+		assets: GameAssets,
 
-        this.player = new Player(
-            assets.playerShip
-        );
-        this.player.container.zIndex = 10;
+		options: GameOptions,
 
-        this.player.container.position.set(
-            app.screen.width / 2,
-            app.screen.height / 2
-        );
+		onGameOver: (result: GameResult) => void,
 
-        app.stage.addChild(
-            this.player.container
-        );
-        this.createIslands();
+		onPauseChange: (paused: boolean) => void,
+	) {
+		this.app = app;
 
-        this.hud = new Hud();
+		this.onGameOver = onGameOver;
 
-        this.hud.container.zIndex = 100;
+		this.onPauseChange = onPauseChange;
 
-        this.app.stage.addChild(
-            this.hud.container
-        );
+		this.app.stage.sortableChildren = true;
 
-        window.addEventListener(
-            "keydown",
-            this.handlePauseKey
-        );
+		this.assets = assets;
 
-        window.addEventListener(
-            "blur",
-            this.handleWindowBlur
-        );
+        this.audio = new AudioManager();
 
-        document.addEventListener(
-            "visibilitychange",
-            this.handleVisibilityChange
-        );
+        this.audio.startOcean();
 
-        app.ticker.add(this.update);
+		this.matchOptions = {
+			...options,
+		};
 
-    }
+		this.remainingTime = this.matchOptions.sessionTime;
 
-    // ===================================
-    // UPDATE
-    // ===================================
+		this.enemySpawnTimer = this.matchOptions.enemySpawnTime;
 
-    private update = () => {
-        const deltaTime =
-            this.app.ticker.deltaMS / 1000;
+		this.input = new InputManager();
 
-        if (this.isGameOver) {
-            return;
-        }
-        if (this.isPaused) {
-            return;
-        }
+		this.ocean = new Ocean(assets.water, app.screen.width, app.screen.height);
 
-        this.remainingTime -= deltaTime;
+		this.ocean.container.zIndex = -100;
 
-        if (this.remainingTime <= 0) {
-            this.remainingTime = 0;
+		app.stage.addChild(this.ocean.container);
 
-            this.endGame("time");
+		this.player = new Player(assets.playerShip, assets.playerShipDamaged, assets.fireFrames);
 
-            return;
-        }
-        // ===================================
-        // PLAYER
-        // ===================================
+		this.player.container.zIndex = 10;
 
-        this.player.update(
-            deltaTime,
+		this.player.container.position.set(
+			app.screen.width / 2,
 
-            this.input.isPressed("KeyW"),
-            this.input.isPressed("KeyA"),
-            this.input.isPressed("KeyD"),
+			app.screen.height / 2,
+		);
 
-            this.app.screen.width,
-            this.app.screen.height
-        );
+		app.stage.addChild(this.player.container);
 
-        // ===================================
-        // CHASERS
-        // ===================================
+		this.createIslands();
 
-        for (const chaser of this.chasers) {
-            chaser.update(
-                deltaTime,
-                this.player.container.x,
-                this.player.container.y
-            );
-        }
-
-        // SHOOTERS
-        // ===================================
-
-        for (const shooter of this.shooters) {
-            const shouldShoot =
-                shooter.update(
-                    deltaTime,
-                    this.player.container.x,
-                    this.player.container.y
-                );
-
-            if (shouldShoot) {
-                this.shooterFire(
-                    shooter
+        this.hud = new Hud( assets.hud,
+            () => {
+                this.setPaused(
+                    true
                 );
             }
-        }
+        );
 
-        // ===================================
-        // COOLDOWNS
-        // ===================================
+		this.hud.container.zIndex = 100;
 
-        if (this.frontShootCooldown > 0) {
-            this.frontShootCooldown -= deltaTime;
-        }
+		this.app.stage.addChild(this.hud.container);
 
-        if (this.leftShootCooldown > 0) {
-            this.leftShootCooldown -= deltaTime;
-        }
+		window.addEventListener(
+			"keydown",
 
-        if (this.rightShootCooldown > 0) {
-            this.rightShootCooldown -= deltaTime;
-        }
+			this.handlePauseKey,
+		);
 
-        // ENEMY SPAWN
-        // ===================================
+		window.addEventListener(
+			"blur",
 
-        this.enemySpawnTimer -= deltaTime;
+			this.handleWindowBlur,
+		);
 
-        if (this.enemySpawnTimer <= 0) {
-            this.spawnEnemy();
+		document.addEventListener(
+			"visibilitychange",
 
-        this.enemySpawnTimer =
-            this.matchOptions.enemySpawnTime;
-        }
+			this.handleVisibilityChange,
+		);
 
-        // INPUT DE TIRO
-        // ===================================
+		app.ticker.add(this.update);
+	}
+
+	// ===================================
+
+	// UPDATE
+
+	// ===================================
+
+	private update = () => {
+		const deltaTime = this.app.ticker.deltaMS / 1000;
+
+		if (this.isGameOver) {
+			return;
+		}
+
+		if (this.isPaused) {
+			return;
+		}
+
+		this.ocean.resize(this.app.screen.width, this.app.screen.height);
+
+		this.remainingTime -= deltaTime;
+
+		if (this.remainingTime <= 0) {
+			this.remainingTime = 0;
+
+			this.endGame("time");
+
+			return;
+		}
+
+		// ===================================
+
+		// PLAYER
+
+		// ===================================
+
+		this.player.update(
+			deltaTime,
+
+			this.input.isPressed("KeyW"),
+
+			this.input.isPressed("KeyA"),
+
+			this.input.isPressed("KeyD"),
+
+			this.app.screen.width,
+
+			this.app.screen.height,
+		);
+
+		// ===================================
+
+		// CHASERS
+
+		// ===================================
+
+		for (const chaser of this.chasers) {
+			chaser.update(
+				deltaTime,
+
+				this.player.container.x,
+
+				this.player.container.y,
+			);
+		}
+
+		// SHOOTERS
+
+		// ===================================
+
+		for (const shooter of this.shooters) {
+			const shouldShoot = shooter.update(
+				deltaTime,
+
+				this.player.container.x,
+
+				this.player.container.y,
+			);
+
+			if (shouldShoot) {
+				this.shooterFire(shooter);
+			}
+		}
+
+		// ===================================
+
+		// COOLDOWNS
+
+		// ===================================
+
+		if (this.frontShootCooldown > 0) {
+			this.frontShootCooldown -= deltaTime;
+		}
+
+		if (this.leftShootCooldown > 0) {
+			this.leftShootCooldown -= deltaTime;
+		}
+
+		if (this.rightShootCooldown > 0) {
+			this.rightShootCooldown -= deltaTime;
+		}
+
+		// ENEMY SPAWN
+
+		// ===================================
+
+		this.enemySpawnTimer -= deltaTime;
+
+		if (this.enemySpawnTimer <= 0) {
+			this.spawnEnemy();
+
+			this.enemySpawnTimer = this.matchOptions.enemySpawnTime;
+		}
+
+		// INPUT DE TIRO
+
+		// ===================================
+
+		if (this.input.isPressed("Space") && this.frontShootCooldown <= 0) {
+			this.shootFront();
+
+			this.frontShootCooldown = GAME_CONFIG.player.frontWeapon.cooldown;
+		}
+
+		// TIRO ESQUERDO
+
+		if (this.input.isPressed("KeyQ") && this.leftShootCooldown <= 0) {
+			this.shootSide("left");
+
+			this.leftShootCooldown = GAME_CONFIG.player.sideWeapon.cooldown;
+		}
+
+		// TIRO DIREITO
+
+		if (this.input.isPressed("KeyE") && this.rightShootCooldown <= 0) {
+			this.shootSide("right");
+
+			this.rightShootCooldown = GAME_CONFIG.player.sideWeapon.cooldown;
+		}
+
+		// ===================================
+
+		// PROJECTILES
+
+		// ===================================
+
+		for (const projectile of this.projectiles) {
+			projectile.update(deltaTime);
+
+			// Destrói se sair da tela
+
+			if (
+				projectile.container.x < 0 ||
+				projectile.container.x > this.app.screen.width ||
+				projectile.container.y < 0 ||
+				projectile.container.y > this.app.screen.height
+			) {
+				projectile.isDead = true;
+			}
+		}
+
+		// PROJECTILE x ISLAND
+
+		// ===================================
+
+		for (const projectile of this.projectiles) {
+			if (projectile.isDead) {
+				continue;
+			}
+
+			for (const island of this.islands) {
+				const dx = projectile.container.x - island.container.x;
+
+				const dy = projectile.container.y - island.container.y;
+
+				const collisionDistance = projectile.radius + island.collisionRadius;
+
+				const distanceSquared = dx * dx + dy * dy;
+
+				if (distanceSquared <= collisionDistance * collisionDistance) {
+					projectile.isDead = true;
+
+					break;
+				}
+			}
+		}
+
+		// ===================================
+
+		// PROJECTILE x CHASER
+
+		// ===================================
+
+		for (const projectile of this.projectiles) {
+			if (projectile.isDead) {
+				continue;
+			}
+
+			if (projectile.owner !== "player") {
+				continue;
+			}
+
+			for (const chaser of this.chasers) {
+				if (chaser.isDead) {
+					continue;
+				}
+
+				const dx = projectile.container.x - chaser.container.x;
+
+				const dy = projectile.container.y - chaser.container.y;
+
+				const distanceSquared = dx * dx + dy * dy;
+
+				const collisionDistance = projectile.radius + chaser.collisionRadius;
+
+				if (distanceSquared <= collisionDistance * collisionDistance) {
+					chaser.takeDamage(projectile.damage);
+
+					// Cada bala só causa dano uma vez
+
+					projectile.isDead = true;
+
+					if (chaser.isDead) {
+                        this.audio.playExplosion();
+
+						this.createExplosion(chaser.container.x, chaser.container.y);
+
+						this.score++;
+
+						console.log(
+							"SCORE:",
+
+							this.score,
+						);
+					}
+
+					break;
+				}
+			}
+		}
+
+		// ===================================
+
+		// CHASER x PLAYER
+
+		// ===================================
+
+		for (const chaser of this.chasers) {
+			if (chaser.isDead) {
+				continue;
+			}
+
+			const dx = chaser.container.x - this.player.container.x;
+
+			const dy = chaser.container.y - this.player.container.y;
+
+			const distanceSquared = dx * dx + dy * dy;
+
+			const collisionDistance = chaser.collisionRadius + this.player.collisionRadius;
+
+			if (distanceSquared <= collisionDistance * collisionDistance) {
+				this.player.takeDamage(GAME_CONFIG.chaser.collisionDamage);
+
+                this.audio.playExplosion();
+
+				// Chaser explode ao bater
+				this.createExplosion(chaser.container.x, chaser.container.y);
+
+				chaser.isDead = true;
+
+				console.log("Chaser hit player");
+			}
+		}
+
+		// CHASER x ISLAND
+
+		// ===================================
+
+		for (const chaser of this.chasers) {
+			if (chaser.isDead) {
+				continue;
+			}
+
+			for (const island of this.islands) {
+				const correctedPosition = this.resolveIslandCollision(
+					chaser.container.x,
+
+					chaser.container.y,
+
+					chaser.collisionRadius,
+
+					island,
+				);
+
+				if (correctedPosition) {
+					chaser.container.position.set(
+						correctedPosition.x,
+
+						correctedPosition.y,
+					);
+				}
+			}
+		}
+
+		// SHOOTER x ISLAND
+
+		// ===================================
+
+		for (const shooter of this.shooters) {
+			if (shooter.isDead) {
+				continue;
+			}
+
+			for (const island of this.islands) {
+				const correctedPosition = this.resolveIslandCollision(
+					shooter.container.x,
+
+					shooter.container.y,
+
+					shooter.collisionRadius,
+
+					island,
+				);
+
+				if (correctedPosition) {
+					shooter.container.position.set(
+						correctedPosition.x,
+
+						correctedPosition.y,
+					);
+				}
+			}
+		}
+
+		// PROJECTILE x SHOOTER
+
+		// ===================================
+
+		for (const projectile of this.projectiles) {
+			if (projectile.isDead) {
+				continue;
+			}
+
+			if (projectile.owner !== "player") {
+				continue;
+			}
+
+			for (const shooter of this.shooters) {
+				if (shooter.isDead) {
+					continue;
+				}
+
+				const dx = projectile.container.x - shooter.container.x;
+
+				const dy = projectile.container.y - shooter.container.y;
+
+				const distanceSquared = dx * dx + dy * dy;
+
+				const collisionDistance = projectile.radius + shooter.collisionRadius;
+
+				if (distanceSquared <= collisionDistance * collisionDistance) {
+					shooter.takeDamage(projectile.damage);
+
+					projectile.isDead = true;
+
+					if (shooter.isDead) {
+                        this.audio.playExplosion();
+
+						this.createExplosion(shooter.container.x, shooter.container.y);
+
+						this.score++;
+
+						console.log(
+							"SCORE:",
+
+							this.score,
+						);
+					}
+
+					break;
+				}
+			}
+		}
+
+		// ENEMY PROJECTILE x PLAYER
+
+		// ===================================
+
+		for (const projectile of this.projectiles) {
+			if (projectile.isDead) {
+				continue;
+			}
+
+			if (projectile.owner !== "enemy") {
+				continue;
+			}
+
+			const dx = projectile.container.x - this.player.container.x;
+
+			const dy = projectile.container.y - this.player.container.y;
+
+			const distanceSquared = dx * dx + dy * dy;
+
+			const collisionDistance = projectile.radius + this.player.collisionRadius;
+
+			if (distanceSquared <= collisionDistance * collisionDistance) {
+				this.player.takeDamage(projectile.damage);
+
+				projectile.isDead = true;
+
+                this.audio.playCollision();
+
+				console.log("Enemy projectile hit player");
+			}
+		}
+
+		// CHECK PLAYER DEATH
+
+		// ===================================
+
+		if (this.player.isDead) {
+			this.endGame("death");
+
+			return;
+		}
+
+		// PLAYER x ISLAND
+
+		// ===================================
+
+		for (const island of this.islands) {
+			const correctedPosition = this.resolveIslandCollision(
+				this.player.container.x,
+
+				this.player.container.y,
+
+				this.player.collisionRadius,
+
+				island,
+			);
+
+			if (correctedPosition) {
+				this.player.container.position.set(
+					correctedPosition.x,
+
+					correctedPosition.y,
+				);
+			}
+		}
+
+		// ===================================
+
+		// REMOVE PROJECTILES
+
+		// ===================================
+
+		for (let i = this.projectiles.length - 1; i >= 0; i--) {
+			const projectile = this.projectiles[i];
+
+			if (projectile.isDead) {
+				this.app.stage.removeChild(projectile.container);
+
+				projectile.destroy();
+
+				this.projectiles.splice(
+					i,
+
+					1,
+				);
+			}
+		}
+
+		// ===================================
+
+		// REMOVE CHASERS
+
+		// ===================================
+
+		for (let i = this.chasers.length - 1; i >= 0; i--) {
+			const chaser = this.chasers[i];
+
+			if (chaser.isDead) {
+				this.app.stage.removeChild(chaser.container);
+
+				chaser.destroy();
+
+				this.chasers.splice(
+					i,
+
+					1,
+				);
+			}
+		}
+
+		for (let i = this.shooters.length - 1; i >= 0; i--) {
+			const shooter = this.shooters[i];
+
+			if (shooter.isDead) {
+				this.app.stage.removeChild(shooter.container);
+
+				shooter.destroy();
+
+				this.shooters.splice(
+					i,
+
+					1,
+				);
+			}
+		}
+
+		// HUD
+
+		// ===================================
+
+		this.hud.update(
+			this.score,
+
+			this.player.health,
+
+			GAME_CONFIG.player.maxHealth,
+
+			this.remainingTime,
+
+			this.app.screen.width,
+		);
+
+		this.effects = this.effects.filter((effect) => {
+			if (effect.isDead) {
+				effect.destroy();
+
+				return false;
+			}
+
+			return true;
+		});
+	};
+
+	// ===================================
+
+	// SPAWN CHASER
+
+	// ===================================
+
+	private spawnChaser() {
+		const position = this.getEnemySpawnPosition();
+
+		const chaser = new Chaser(
+			position.x,
+			position.y,
+
+			this.assets.chaserShip,
+
+			this.assets.chaserShipDamaged,
+
+			this.assets.fireFrames,
+		);
+
+		chaser.container.zIndex = 10;
+
+		this.chasers.push(chaser);
+
+		this.app.stage.addChild(chaser.container);
+
+		console.log(
+			"Enemy spawned:",
+
+			position.x,
+
+			position.y,
+		);
+	}
+
+	private spawnShooter() {
+		const position = this.getEnemySpawnPosition();
+
+		const shooter = new Shooter(
+			position.x,
+			position.y,
+
+			this.assets.shooterShip,
+
+			this.assets.shooterShipDamaged,
+
+			this.assets.fireFrames,
+		);
+
+		shooter.container.zIndex = 10;
+
+		this.shooters.push(shooter);
+
+		this.app.stage.addChild(shooter.container);
+
+		console.log("Shooter spawned");
+	}
+
+	private spawnEnemy() {
+		const spawnShooter = Math.random() < 0.5;
+
+		if (spawnShooter) {
+			this.spawnShooter();
+		} else {
+			this.spawnChaser();
+		}
+	}
+
+	private getEnemySpawnPosition() {
+		const width = this.app.screen.width;
+
+		const height = this.app.screen.height;
+
+		const margin = 70;
+
+		const minimumDistanceFromPlayer = GAME_CONFIG.match.minimumEnemySpawnDistance;
+
+		// Tenta encontrar uma posição boa
+
+		for (let attempt = 0; attempt < 20; attempt++) {
+			const side = Math.floor(Math.random() * 4);
+
+			let x = 0;
+
+			let y = 0;
+
+			switch (side) {
+				// TOPO
+
+				case 0:
+					x = margin + Math.random() * (width - margin * 2);
+
+					y = margin;
+
+					break;
+
+				// DIREITA
+
+				case 1:
+					x = width - margin;
+
+					y = margin + Math.random() * (height - margin * 2);
+
+					break;
+
+				// BAIXO
+
+				case 2:
+					x = margin + Math.random() * (width - margin * 2);
+
+					y = height - margin;
+
+					break;
+
+				// ESQUERDA
+
+				default:
+					x = margin;
+
+					y = margin + Math.random() * (height - margin * 2);
+
+					break;
+			}
+
+			const dx = x - this.player.container.x;
+
+			const dy = y - this.player.container.y;
+
+			const distance = Math.sqrt(dx * dx + dy * dy);
+
+			if (distance >= minimumDistanceFromPlayer) {
+				let blockedByIsland = false;
+
+				for (const island of this.islands) {
+					const islandDX = x - island.container.x;
+
+					const islandDY = y - island.container.y;
+
+					const islandDistance = Math.sqrt(islandDX * islandDX + islandDY * islandDY);
+
+					if (islandDistance < island.collisionRadius + 100) {
+						blockedByIsland = true;
+
+						break;
+					}
+				}
+
+				if (blockedByIsland) {
+					continue;
+				}
+
+				return {
+					x,
+
+					y,
+				};
+			}
+		}
+
+		// Fallback caso as 20 tentativas falhem
+
+		return {
+			x: margin,
+
+			y: margin,
+		};
+	}
+
+	// ===================================
+
+	// FRONT CANNON
+
+	// ===================================
+
+	private shootFront() {
+
+        this.audio.playCannon();
+
+		const rotation = this.player.container.rotation;
+
+		const projectile = new Projectile(
+			this.player.container.x + Math.sin(rotation) * 55,
+
+			this.player.container.y - Math.cos(rotation) * 55,
+
+			rotation,
+
+			GAME_CONFIG.player.frontWeapon.projectileSpeed,
+
+			GAME_CONFIG.player.frontWeapon.projectileLifetime,
+
+			GAME_CONFIG.player.frontWeapon.damage,
+
+			"player",
+
+			this.assets.cannonball,
+		);
+
+		projectile.container.zIndex = 20;
+
+		this.projectiles.push(projectile);
+
+		this.app.stage.addChild(projectile.container);
+	}
+
+	// ===================================
+
+	// SIDE CANNON
+
+	// ===================================
+
+	private shootSide(side: "left" | "right") {
+
+        this.audio.playCannon();
+
+		const shipRotation = this.player.container.rotation;
+
+		const sideRotation = side === "left" ? shipRotation - Math.PI / 2 : shipRotation + Math.PI / 2;
+
+		// Frente do navio
+
+		const forwardX = Math.sin(shipRotation);
+
+		const forwardY = -Math.cos(shipRotation);
+
+		// Direita do navio
+
+		const rightX = Math.cos(shipRotation);
+
+		const rightY = Math.sin(shipRotation);
+
+		const sideDirection = side === "left" ? -1 : 1;
+
+		const sideOffset = 40;
+
+		const projectileCount = GAME_CONFIG.player.sideWeapon.projectileCount;
+
+		const spacing = 30;
+
+		const cannonPositions: number[] = [];
+
+		for (let i = 0; i < projectileCount; i++) {
+			const centeredIndex = i - (projectileCount - 1) / 2;
+
+			cannonPositions.push(centeredIndex * spacing);
+		}
+
+		for (const forwardOffset of cannonPositions) {
+			const spawnX =
+				this.player.container.x + forwardX * forwardOffset + rightX * sideOffset * sideDirection;
+
+			const spawnY =
+				this.player.container.y + forwardY * forwardOffset + rightY * sideOffset * sideDirection;
+
+			const projectile = new Projectile(
+				spawnX,
+
+				spawnY,
+
+				sideRotation,
+
+				GAME_CONFIG.player.sideWeapon.projectileSpeed,
+
+				GAME_CONFIG.player.sideWeapon.projectileLifetime,
+
+				GAME_CONFIG.player.sideWeapon.damage,
+
+				"player",
+
+				this.assets.cannonball,
+			);
+
+			projectile.container.zIndex = 20;
+
+			this.projectiles.push(projectile);
+
+			this.app.stage.addChild(projectile.container);
+		}
+	}
+
+	private createExplosion(
+		x: number,
+
+		y: number,
+	) {
+		const explosion = new GameEffect(
+			x,
+
+			y,
+
+			this.assets.explosionFrames,
+
+			110,
+
+			110,
+
+			0.18,
+		);
+
+		explosion.container.zIndex = 50;
+
+		this.app.stage.addChild(explosion.container);
+
+		this.effects.push(explosion);
+	}
+
+	private shooterFire(shooter: Shooter) {
+
+        this.audio.playCannon();
+
+		const rotation = shooter.container.rotation;
+
+		const spawnDistance = 45;
+
+		const spawnX = shooter.container.x + Math.sin(rotation) * spawnDistance;
+
+		const spawnY = shooter.container.y - Math.cos(rotation) * spawnDistance;
+
+		const projectile = new Projectile(
+			spawnX,
+
+			spawnY,
+
+			rotation,
+
+			GAME_CONFIG.shooter.weapon.projectileSpeed,
+
+			GAME_CONFIG.shooter.weapon.projectileLifetime,
+
+			GAME_CONFIG.shooter.weapon.damage,
+
+			"enemy",
+
+			this.assets.cannonball,
+		);
+
+		projectile.container.zIndex = 20;
+
+		this.projectiles.push(projectile);
+
+		this.app.stage.addChild(projectile.container);
+	}
+
+	private createIslands() {
+		const islandCount = 2;
+
+		for (let i = 0; i < islandCount; i++) {
+			const position = this.getRandomIslandPosition();
+
+			const island = new Island(position.x, position.y, this.assets.island);
+
+			island.container.zIndex = 5;
+
+			this.islands.push(island);
+
+			this.app.stage.addChild(island.container);
+		}
+	}
+
+	private getRandomIslandPosition() {
+		const width = this.app.screen.width;
+
+		const height = this.app.screen.height;
+
+		// Evita que a ilha fique cortada
+		// nas bordas.
+		const margin = 180;
+
+		// Evita nascer em cima do player.
+		const minimumPlayerDistance = 300;
+
+		// Evita duas ilhas grudadas.
+		const minimumIslandDistance = 350;
+
+		for (let attempt = 0; attempt < 50; attempt++) {
+			const x = margin + Math.random() * (width - margin * 2);
+
+			const y = margin + Math.random() * (height - margin * 2);
+
+			// ================================
+			// DISTANCE FROM PLAYER
+			// ================================
+
+			const playerDX = x - this.player.container.x;
+
+			const playerDY = y - this.player.container.y;
+
+			const playerDistance = Math.sqrt(playerDX * playerDX + playerDY * playerDY);
+
+			if (playerDistance < minimumPlayerDistance) {
+				continue;
+			}
+
+			// ================================
+			// DISTANCE FROM OTHER ISLANDS
+			// ================================
+
+			let tooCloseToIsland = false;
+
+			for (const island of this.islands) {
+				const dx = x - island.container.x;
+
+				const dy = y - island.container.y;
+
+				const distance = Math.sqrt(dx * dx + dy * dy);
+
+				if (distance < minimumIslandDistance) {
+					tooCloseToIsland = true;
+
+					break;
+				}
+			}
+
+			if (tooCloseToIsland) {
+				continue;
+			}
+
+			return {
+				x,
+				y,
+			};
+		}
+
+		// Fallback extremamente raro.
+		return {
+			x: width * 0.25,
+
+			y: height * 0.25,
+		};
+	}
+
+	private resolveIslandCollision(
+		objectX: number,
+
+		objectY: number,
+
+		objectRadius: number,
+
+		island: Island,
+	) {
+		const dx = objectX - island.container.x;
+
+		const dy = objectY - island.container.y;
+
+		const distanceSquared = dx * dx + dy * dy;
+
+		const minimumDistance = objectRadius + island.collisionRadius;
+
+		if (distanceSquared >= minimumDistance * minimumDistance) {
+			return null;
+		}
+
+		const distance = Math.sqrt(distanceSquared);
+
+		// Caso extremamente raro de estarem
+
+		// exatamente na mesma posição
+
+		if (distance === 0) {
+			return {
+				x: island.container.x + minimumDistance,
+
+				y: island.container.y,
+			};
+		}
+
+		const normalX = dx / distance;
+
+		const normalY = dy / distance;
+
+		return {
+			x: island.container.x + normalX * minimumDistance,
+
+			y: island.container.y + normalY * minimumDistance,
+		};
+	}
+
+	private endGame(reason: GameEndReason) {
+		if (this.isGameOver) {
+			return;
+		}
+
+		this.isGameOver = true;
+
+		const timePlayed = this.matchOptions.sessionTime - this.remainingTime;
+
+		console.log(
+			"GAME OVER",
+
+			reason,
+
+			this.score,
+		);
+
+		this.onGameOver({
+			matchId: crypto.randomUUID(),
+
+			score: this.score,
+
+			timePlayed,
+
+			reason,
+
+			config: {
+				...this.matchOptions,
+			},
+		});
+	}
+
+	public setPaused(paused: boolean) {
+		if (this.isGameOver) {
+			return;
+		}
+
+		if (this.isPaused === paused) {
+			return;
+		}
+
+		this.isPaused = paused;
 
         if (
-            this.input.isPressed("Space") &&
-            this.frontShootCooldown <= 0
+            paused
         ) {
-            this.shootFront();
 
-            this.frontShootCooldown =
-                GAME_CONFIG.player
-                    .frontWeapon
-                    .cooldown;
-        }
+            this.audio.pauseOcean();
 
-        // TIRO ESQUERDO
-
-        if (
-            this.input.isPressed("KeyQ") &&
-            this.leftShootCooldown <= 0
-        ) {
-            this.shootSide("left");
-
-            this.leftShootCooldown =
-                GAME_CONFIG.player
-                    .sideWeapon
-                    .cooldown;
-        }
-
-        // TIRO DIREITO
-
-        if (
-            this.input.isPressed("KeyE") &&
-            this.rightShootCooldown <= 0
-        ) {
-            this.shootSide("right");
-
-            this.rightShootCooldown =
-                GAME_CONFIG.player
-                    .sideWeapon
-                    .cooldown;
-        }
-
-        // ===================================
-        // PROJECTILES
-        // ===================================
-
-        for (const projectile of this.projectiles) {
-            projectile.update(deltaTime);
-
-            // Destrói se sair da tela
-            if (
-                projectile.container.x < 0 ||
-                projectile.container.x >
-                    this.app.screen.width ||
-                projectile.container.y < 0 ||
-                projectile.container.y >
-                    this.app.screen.height
-            ) {
-                projectile.isDead = true;
-            }
-        }
-
-        // PROJECTILE x ISLAND
-        // ===================================
-
-        for (const projectile of this.projectiles) {
-            if (projectile.isDead) {
-                continue;
-            }
-
-            for (const island of this.islands) {
-                const dx =
-                    projectile.container.x -
-                    island.container.x;
-
-                const dy =
-                    projectile.container.y -
-                    island.container.y;
-
-                const collisionDistance =
-                    projectile.radius +
-                    island.collisionRadius;
-
-                const distanceSquared =
-                    dx * dx + dy * dy;
-
-                if (
-                    distanceSquared <=
-                    collisionDistance *
-                        collisionDistance
-                ) {
-                    projectile.isDead = true;
-
-                    break;
-                }
-            }
-        }
-        // ===================================
-        // PROJECTILE x CHASER
-        // ===================================
-
-        for (const projectile of this.projectiles) {
-            if (projectile.isDead) {
-                continue;
-            }
-
-            if (projectile.owner !== "player") {
-                continue;
-            }
-
-            for (const chaser of this.chasers) {
-                if (chaser.isDead) {
-                    continue;
-                }
-
-                const dx =
-                    projectile.container.x -
-                    chaser.container.x;
-
-                const dy =
-                    projectile.container.y -
-                    chaser.container.y;
-
-                const distanceSquared =
-                    dx * dx + dy * dy;
-
-                const collisionDistance =
-                    projectile.radius +
-                    chaser.collisionRadius;
-
-                if (
-                    distanceSquared <=
-                    collisionDistance *
-                        collisionDistance
-                ) {
-                    chaser.takeDamage(
-                        projectile.damage
-                    );
-
-                    // Cada bala só causa dano uma vez
-                    projectile.isDead = true;
-
-                    if (chaser.isDead) {
-                        this.score++;
-
-                        console.log(
-                            "SCORE:",
-                            this.score
-                        );
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        // ===================================
-        // CHASER x PLAYER
-        // ===================================
-
-        for (const chaser of this.chasers) {
-            if (chaser.isDead) {
-                continue;
-            }
-
-            const dx =
-                chaser.container.x -
-                this.player.container.x;
-
-            const dy =
-                chaser.container.y -
-                this.player.container.y;
-
-            const distanceSquared =
-                dx * dx + dy * dy;
-
-            const collisionDistance =
-                chaser.collisionRadius +
-                this.player.collisionRadius;
-
-            if (
-                distanceSquared <=
-                collisionDistance *
-                    collisionDistance
-            ) {
-                this.player.takeDamage(
-                    GAME_CONFIG.chaser
-                        .collisionDamage
-                );
-
-                // Chaser explode ao bater
-                chaser.isDead = true;
-
-                console.log(
-                    "Chaser hit player"
-                );
-            }
-
-
-        }
-
-        // CHASER x ISLAND
-        // ===================================
-        for (const chaser of this.chasers) {
-            if (chaser.isDead) {
-                continue;
-            }
-
-            for (const island of this.islands) {
-                const correctedPosition =
-                    this.resolveIslandCollision(
-                        chaser.container.x,
-                        chaser.container.y,
-                        chaser.collisionRadius,
-                        island
-                    );
-
-                if (correctedPosition) {
-                    chaser.container.position.set(
-                        correctedPosition.x,
-                        correctedPosition.y
-                    );
-                }
-            }
-        }
-
-        // SHOOTER x ISLAND
-        // ===================================
-        for (const shooter of this.shooters) {
-            if (shooter.isDead) {
-                continue;
-            }
-
-            for (const island of this.islands) {
-                const correctedPosition =
-                    this.resolveIslandCollision(
-                        shooter.container.x,
-                        shooter.container.y,
-                        shooter.collisionRadius,
-                        island
-                    );
-
-                if (correctedPosition) {
-                    shooter.container.position.set(
-                        correctedPosition.x,
-                        correctedPosition.y
-                    );
-                }
-            }
-        }
-
-        // PROJECTILE x SHOOTER
-        // ===================================
-
-        for (const projectile of this.projectiles) {
-            if (projectile.isDead) {
-                continue;
-            }
-
-            if (
-                projectile.owner !==
-                "player"
-            ) {
-                continue;
-            }
-
-            for (
-                const shooter
-                of this.shooters
-            ) {
-                if (shooter.isDead) {
-                    continue;
-                }
-
-                const dx =
-                    projectile.container.x -
-                    shooter.container.x;
-
-                const dy =
-                    projectile.container.y -
-                    shooter.container.y;
-
-                const distanceSquared =
-                    dx * dx + dy * dy;
-
-                const collisionDistance =
-                    projectile.radius +
-                    shooter.collisionRadius;
-
-                if (
-                    distanceSquared <=
-                    collisionDistance *
-                        collisionDistance
-                ) {
-                    shooter.takeDamage(
-                        projectile.damage
-                    );
-
-                    projectile.isDead = true;
-
-                    if (shooter.isDead) {
-                        this.score++;
-
-                        console.log(
-                            "SCORE:",
-                            this.score
-                        );
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        // ENEMY PROJECTILE x PLAYER
-        // ===================================
-
-        for (const projectile of this.projectiles) {
-            if (projectile.isDead) {
-                continue;
-            }
-
-            if (
-                projectile.owner !==
-                "enemy"
-            ) {
-                continue;
-            }
-
-            const dx =
-                projectile.container.x -
-                this.player.container.x;
-
-            const dy =
-                projectile.container.y -
-                this.player.container.y;
-
-            const distanceSquared =
-                dx * dx + dy * dy;
-
-            const collisionDistance =
-                projectile.radius +
-                this.player.collisionRadius;
-
-            if (
-                distanceSquared <=
-                collisionDistance *
-                    collisionDistance
-            ) {
-                this.player.takeDamage(
-                    projectile.damage
-                );
-
-                projectile.isDead = true;
-
-                console.log(
-                    "Enemy projectile hit player"
-                );
-            }
-        }
-
-        // CHECK PLAYER DEATH
-        // ===================================
-
-        if (this.player.isDead) {
-            this.endGame("death");
-
-            return;
-        }
-        // PLAYER x ISLAND
-        // ===================================
-
-        for (const island of this.islands) {
-            const correctedPosition =
-                this.resolveIslandCollision(
-                    this.player.container.x,
-                    this.player.container.y,
-                    this.player.collisionRadius,
-                    island
-                );
-
-            if (correctedPosition) {
-                this.player.container.position.set(
-                    correctedPosition.x,
-                    correctedPosition.y
-                );
-            }
-        }
-
-        // ===================================
-        // REMOVE PROJECTILES
-        // ===================================
-
-        for (
-            let i =
-                this.projectiles.length - 1;
-            i >= 0;
-            i--
-        ) {
-            const projectile =
-                this.projectiles[i];
-
-            if (projectile.isDead) {
-                this.app.stage.removeChild(
-                    projectile.container
-                );
-
-                projectile.destroy();
-
-                this.projectiles.splice(
-                    i,
-                    1
-                );
-            }
-        }
-
-        // ===================================
-        // REMOVE CHASERS
-        // ===================================
-
-        for (let i = this.chasers.length - 1; i >= 0; i--) {
-            const chaser =
-                this.chasers[i];
-
-            if (chaser.isDead) {
-                this.app.stage.removeChild(
-                    chaser.container
-                );
-
-                chaser.destroy();
-
-                this.chasers.splice(
-                    i,
-                    1
-                );
-            }
-        }
-
-        for (let i = this.shooters.length - 1; i >= 0; i--) {
-            const shooter =
-                this.shooters[i];
-
-            if (shooter.isDead) {
-                this.app.stage.removeChild(
-                    shooter.container
-                );
-
-                shooter.destroy();
-
-                this.shooters.splice(
-                    i,
-                    1
-                );
-            }
-        }
-        // HUD
-        // ===================================
-
-        this.hud.update(
-            this.score,
-            this.player.health,
-            GAME_CONFIG.player.maxHealth,
-            this.remainingTime,
-            this.app.screen.width
-        );
-    };
-
-    // ===================================
-    // SPAWN CHASER
-    // ===================================
-
-    private spawnChaser() {
-        const position =
-            this.getEnemySpawnPosition();
-
-        const chaser = new Chaser(
-            position.x,
-            position.y,
-            this.assets.chaserShip
-        );
-
-        chaser.container.zIndex = 10;
-
-        this.chasers.push(chaser);
-
-        this.app.stage.addChild(
-            chaser.container
-        );
-
-        console.log(
-            "Enemy spawned:",
-            position.x,
-            position.y
-        );
-    }
-
-    private spawnShooter() {
-        const position =
-            this.getEnemySpawnPosition();
-
-        const shooter =
-            new Shooter(
-                position.x,
-                position.y,
-                this.assets.shooterShip
-            );
-
-        shooter.container.zIndex = 10;
-        
-        this.shooters.push(
-            shooter
-        );
-
-        this.app.stage.addChild(
-            shooter.container
-        );
-
-        console.log(
-            "Shooter spawned"
-        );
-    }
-
-    private spawnEnemy() {
-        const spawnShooter =
-            Math.random() < 0.5;
-
-        if (spawnShooter) {
-            this.spawnShooter();
         } else {
-            this.spawnChaser();
-        }
-    }
 
-    private getEnemySpawnPosition() {
-        const width =
-            this.app.screen.width;
-
-        const height =
-            this.app.screen.height;
-
-        const margin = 70;
-
-        const minimumDistanceFromPlayer = GAME_CONFIG.match.minimumEnemySpawnDistance;
-
-        // Tenta encontrar uma posição boa
-        for (let attempt = 0; attempt < 20; attempt++) {
-
-            const side =
-                Math.floor(Math.random() * 4);
-
-            let x = 0;
-            let y = 0;
-
-            switch (side) {
-                // TOPO
-                case 0:
-                    x =
-                        margin +
-                        Math.random() *
-                            (width - margin * 2);
-
-                    y = margin;
-
-                    break;
-
-                // DIREITA
-                case 1:
-                    x = width - margin;
-
-                    y =
-                        margin +
-                        Math.random() *
-                            (height - margin * 2);
-
-                    break;
-
-                // BAIXO
-                case 2:
-                    x =
-                        margin +
-                        Math.random() *
-                            (width - margin * 2);
-
-                    y = height - margin;
-
-                    break;
-
-                // ESQUERDA
-                default:
-                    x = margin;
-
-                    y =
-                        margin +
-                        Math.random() *
-                            (height - margin * 2);
-
-                    break;
-            }
-
-            const dx =
-                x - this.player.container.x;
-
-            const dy =
-                y - this.player.container.y;
-
-            const distance =
-                Math.sqrt(
-                    dx * dx + dy * dy
-                );
-
-            if (
-                distance >=
-                minimumDistanceFromPlayer
-            ) {
-                return {
-                    x,
-                    y
-                };
-            }
+            this.audio.resumeOcean();
         }
 
-        // Fallback caso as 20 tentativas falhem
-        return {
-            x: margin,
-            y: margin
-        };
-    }
+		// Evita tecla presa
 
-    // ===================================
-    // FRONT CANNON
-    // ===================================
-
-    private shootFront() {
-        // ISSO ESTAVA FALTANDO
-        const rotation =
-            this.player.container.rotation;
-
-        const projectile =
-            new Projectile(
-                this.player.container.x +
-                    Math.sin(rotation) * 55,
-
-                this.player.container.y -
-                    Math.cos(rotation) * 55,
-
-                rotation,
-
-                GAME_CONFIG.player
-                    .frontWeapon
-                    .projectileSpeed,
-
-                GAME_CONFIG.player
-                    .frontWeapon
-                    .projectileLifetime,
-
-                GAME_CONFIG.player
-                    .frontWeapon
-                    .damage,
-
-                "player",
-                this.assets.cannonball
-            );
-
-        projectile.container.zIndex = 20;
-
-        this.projectiles.push(projectile);
-
-        this.app.stage.addChild(projectile.container);
-    }
-
-    // ===================================
-    // SIDE CANNON
-    // ===================================
-
-    private shootSide(
-        side: "left" | "right"
-    ) {
-        const shipRotation =
-            this.player.container.rotation;
-
-        const sideRotation =
-            side === "left"
-                ? shipRotation - Math.PI / 2
-                : shipRotation + Math.PI / 2;
-
-        // Frente do navio
-        const forwardX =
-            Math.sin(shipRotation);
-
-        const forwardY =
-            -Math.cos(shipRotation);
-
-        // Direita do navio
-        const rightX =
-            Math.cos(shipRotation);
-
-        const rightY =
-            Math.sin(shipRotation);
-
-        const sideDirection =
-            side === "left" ? -1 : 1;
-
-        const sideOffset = 40;
-
-        const projectileCount =
-            GAME_CONFIG.player
-                .sideWeapon
-                .projectileCount;
-
-        const spacing = 30;
-
-        const cannonPositions: number[] = [];
-
-        for (
-            let i = 0;
-            i < projectileCount;
-            i++
-        ) {
-            const centeredIndex =
-                i -
-                (projectileCount - 1) / 2;
-
-            cannonPositions.push(
-                centeredIndex * spacing
-            );
-        }
-
-        for (
-            const forwardOffset
-            of cannonPositions
-        ) {
-            const spawnX =
-                this.player.container.x +
-                forwardX *
-                    forwardOffset +
-                rightX *
-                    sideOffset *
-                    sideDirection;
-
-            const spawnY =
-                this.player.container.y +
-                forwardY *
-                    forwardOffset +
-                rightY *
-                    sideOffset *
-                    sideDirection;
-
-            const projectile =
-                new Projectile(
-                    spawnX,
-                    spawnY,
-                    sideRotation,
-
-                    GAME_CONFIG.player
-                        .sideWeapon
-                        .projectileSpeed,
-
-                    GAME_CONFIG.player
-                        .sideWeapon
-                        .projectileLifetime,
-
-                    GAME_CONFIG.player
-                        .sideWeapon
-                        .damage,
-
-                    "player",
-                    this.assets.cannonball
-
-                );
-
-            projectile.container.zIndex = 20;
-
-            this.projectiles.push(
-                projectile
-            );
-
-            this.app.stage.addChild(
-                projectile.container
-            );
-        }
-    }
-
-    private shooterFire(shooter: Shooter) {
-    const rotation =
-        shooter.container.rotation;
-
-    const spawnDistance = 45;
-
-    const spawnX =
-        shooter.container.x +
-        Math.sin(rotation) *
-            spawnDistance;
-
-    const spawnY =
-        shooter.container.y -
-        Math.cos(rotation) *
-            spawnDistance;
-
-    const projectile =
-        new Projectile(
-            spawnX,
-            spawnY,
-
-            rotation,
-
-            GAME_CONFIG.shooter
-                .weapon
-                .projectileSpeed,
-
-            GAME_CONFIG.shooter
-                .weapon
-                .projectileLifetime,
-
-            GAME_CONFIG.shooter
-                .weapon
-                .damage,
-
-            "enemy",
-            this.assets.cannonball
-        );
-
-        projectile.container.zIndex = 20;
-
-        this.projectiles.push(
-            projectile
-        );
-
-        this.app.stage.addChild(
-            projectile.container
-        );
-    }
-
-    private createIslands() {
-        const island = new Island(
-            this.app.screen.width * 0.65,
-            this.app.screen.height * 0.5,
-            90
-        );
-
-        // Ilha fica abaixo dos navios
-        island.container.zIndex = 5;
-
-        this.islands.push(island);
-
-        this.app.stage.addChild(
-            island.container
-        );
-    }
-    
-    private resolveIslandCollision(
-        objectX: number,
-        objectY: number,
-        objectRadius: number,
-        island: Island
-    ) {
-        const dx =
-            objectX -
-            island.container.x;
-
-        const dy =
-            objectY -
-            island.container.y;
-
-        const distanceSquared =
-            dx * dx + dy * dy;
-
-        const minimumDistance =
-            objectRadius +
-            island.collisionRadius;
-
-        if (
-            distanceSquared >=
-            minimumDistance *
-                minimumDistance
-        ) {
-            return null;
-        }
-
-        const distance =
-            Math.sqrt(
-                distanceSquared
-            );
-
-        // Caso extremamente raro de estarem
-        // exatamente na mesma posição
-        if (distance === 0) {
-            return {
-                x:
-                    island.container.x +
-                    minimumDistance,
-
-                y:
-                    island.container.y
-            };
-        }
-
-        const normalX =
-            dx / distance;
-
-        const normalY =
-            dy / distance;
-
-        return {
-            x:
-                island.container.x +
-                normalX *
-                    minimumDistance,
-
-            y:
-                island.container.y +
-                normalY *
-                    minimumDistance
-        };
-    }
-
-
-    private endGame(
-        reason: GameEndReason
-    ) {
-        if (this.isGameOver) {
-            return;
-        }
-
-        this.isGameOver = true;
-
-        const timePlayed =
-            this.matchOptions.sessionTime -
-            this.remainingTime;
-
-        console.log(
-            "GAME OVER",
-            reason,
-            this.score
-        );
-
-        this.onGameOver({
-            matchId:
-                crypto.randomUUID(),
-
-            score:
-                this.score,
-
-            timePlayed,
-
-            reason,
-
-            config: {
-                ...this.matchOptions
-            }
-        });
-    }
-
-    public setPaused(paused: boolean) 
-    {
-        if (this.isGameOver) {
-            return;
-        }
-
-        if (
-            this.isPaused === paused
-        ) {
-            return;
-        }
-
-        this.isPaused = paused;
-
-        // Evita tecla presa
-        this.input.clear();
-
-        this.onPauseChange(
-            this.isPaused
-        );
-    }
-
-    private handlePauseKey = (event: KeyboardEvent) => 
-    {
-        if (event.code !== "Escape") {
-            return;
-        }
-
-        if (event.repeat) {
-            return;
-        }
-
-        if (this.isGameOver) {
-            return;
-        }
-
-        this.setPaused(
-            !this.isPaused
-        );
-    };
-
-    private handleWindowBlur = () => {
-        if (this.isGameOver) {
-            return;
-        }
-
-        this.setPaused(true);
-    };
-
-    private handleVisibilityChange = () => {
-        if (
-            document.hidden &&
-            !this.isGameOver
-        ) {
-            this.setPaused(true);
-        }
-    };
-    // ===================================
-    // DESTROY
-    // ===================================
-
-    destroy() {
-        this.app.ticker.remove(
-            this.update
-        );
-
-        window.removeEventListener(
-            "keydown",
-            this.handlePauseKey
-        );
-
-        window.removeEventListener(
-            "blur",
-            this.handleWindowBlur
-        );
-
-        document.removeEventListener(
-            "visibilitychange",
-            this.handleVisibilityChange
-        );
-
-        this.input.destroy();
-
-        for (
-            const projectile
-            of this.projectiles
-        ) {
-            projectile.destroy();
-        }
-
-        this.projectiles = [];
-
-        for (
-            const chaser
-            of this.chasers
-        ) {
-            chaser.destroy();
-        }
-
-        this.chasers = [];
-
-        this.player.container.destroy({
-            children: true
-        });
-
-        for (const shooter of this.shooters) {
-            shooter.destroy();
-        }
-
-        this.shooters = [];
-
-        for (const island of this.islands) {
-            island.destroy();
-        }
-
-        this.hud.container.destroy({
-            children: true
-        });
+		this.input.clear();
+
+		this.onPauseChange(this.isPaused);
+	}
+
+	private handlePauseKey = (event: KeyboardEvent) => {
+		if (event.code !== "Escape") {
+			return;
+		}
+
+		if (event.repeat) {
+			return;
+		}
+
+		if (this.isGameOver) {
+			return;
+		}
+
+		this.setPaused(!this.isPaused);
+	};
+
+	private handleWindowBlur = () => {
+		if (this.isGameOver) {
+			return;
+		}
+
+		this.setPaused(true);
+	};
+
+	private handleVisibilityChange = () => {
+		if (document.hidden && !this.isGameOver) {
+			this.setPaused(true);
+		}
+	};
+
+	// ===================================
+
+	// DESTROY
+
+	// ===================================
+
+	destroy() {
+		this.app.ticker.remove(this.update);
+
+		window.removeEventListener(
+			"keydown",
+
+			this.handlePauseKey,
+		);
+
+		window.removeEventListener(
+			"blur",
+
+			this.handleWindowBlur,
+		);
+
+		document.removeEventListener(
+			"visibilitychange",
+
+			this.handleVisibilityChange,
+		);
+
+		this.input.destroy();
+
+        this.audio.destroy();
+
+		for (const projectile of this.projectiles) {
+			projectile.destroy();
+		}
+
+		this.projectiles = [];
+
+		for (const effect of this.effects) {
+			effect.destroy();
+		}
+
+		this.effects = [];
+
+		for (const chaser of this.chasers) {
+			chaser.destroy();
+		}
+
+		this.chasers = [];
+
+		this.player.container.destroy({
+			children: true,
+		});
+
+		for (const shooter of this.shooters) {
+			shooter.destroy();
+		}
+
+		this.shooters = [];
+
+		for (const island of this.islands) {
+			island.destroy();
+		}
 
         this.islands = [];
 
-        
-    }
+        this.hud.destroy();
+
+        this.ocean.destroy();
+	}
 }

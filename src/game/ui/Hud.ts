@@ -1,113 +1,817 @@
 import {
     Container,
+    Sprite,
     Text
 } from "pixi.js";
 
+import type {
+    HudTextures
+} from "../core/GameAssets";
+
+
 export class Hud {
-    public readonly container: Container;
 
-    private scoreText: Text;
-    private healthText: Text;
-    private timeText: Text;
+    public readonly container:
+        Container;
 
-    constructor() {
+
+    // ====================================
+    // HEALTH
+    // ====================================
+
+    private healthContainer:
+        Container;
+
+    private healthFrame:
+        Sprite;
+
+    private healthFill:
+        Sprite;
+
+    private heartIcon:
+        Sprite;
+
+    private healthText:
+        Text;
+
+
+    private readonly maxHealthFillWidth =
+        220;
+
+
+    // ====================================
+    // SCORE
+    // ====================================
+
+    private scoreContainer:
+        Container;
+
+    private scoreText:
+        Text;
+
+
+    // ====================================
+    // TIMER
+    // ====================================
+
+    private timerContainer:
+        Container;
+
+    private timerText:
+        Text;
+
+
+    // ====================================
+    // PAUSE
+    // ====================================
+
+    private pauseContainer:
+        Container;
+
+    private pauseButton:
+        Sprite;
+
+
+    private textures:
+        HudTextures;
+
+
+    constructor(
+        textures: HudTextures,
+        onPause: () => void
+    ) {
+
+        this.textures =
+            textures;
+
+
         this.container =
             new Container();
 
-        const textStyle = {
-            fontFamily: "Arial",
-            fontSize: 24,
-            fill: 0xffffff,
-            fontWeight: "bold" as const,
-        };
 
-        this.scoreText =
-            new Text({
-                text: "SCORE: 0",
-                style: textStyle
-            });
+        // ====================================
+        // HEALTH
+        // ====================================
 
-        this.healthText =
-            new Text({
-                text: "HP: 100 / 100",
-                style: textStyle
-            });
+        this.healthContainer =
+            new Container();
 
-        this.timeText =
-            new Text({
-                text: "TIME: 02:00",
-                style: textStyle
-            });
 
-        this.scoreText.position.set(
-            20,
-            20
-        );
+        this.healthFrame =
+            new Sprite(
+                textures.healthFrame
+            );
 
-        this.healthText.position.set(
-            20,
-            55
-        );
 
-        // O x será atualizado
-        // de acordo com a tela
-        this.timeText.anchor.set(
-            1,
+        this.healthFrame.width =
+            280;
+
+        this.healthFrame.height =
+            54;
+
+
+        this.healthFrame.position.set(
+            36,
             0
         );
 
-        this.container.addChild(
-            this.scoreText
+
+        // ------------------------------------
+        // HEALTH FILL
+        // ------------------------------------
+
+        this.healthFill =
+            new Sprite(
+                textures.healthFillGreen
+            );
+
+
+        this.healthFill.width =
+            this.maxHealthFillWidth;
+
+        this.healthFill.height =
+            19;
+
+
+        this.healthFill.position.set(
+            72,
+            17
         );
 
-        this.container.addChild(
+
+        // ------------------------------------
+        // HEART
+        // ------------------------------------
+
+        this.heartIcon =
+            new Sprite(
+                textures.heartIcon
+            );
+
+
+        this.heartIcon.width =
+            48;
+
+        this.heartIcon.height =
+            48;
+
+
+        this.heartIcon.position.set(
+            0,
+            3
+        );
+
+
+        // ------------------------------------
+        // HEALTH TEXT
+        // ------------------------------------
+
+        this.healthText =
+            new Text({
+                text:
+                    "100 / 100",
+
+                style: {
+                    fontFamily:
+                        "Arial",
+
+                    fontSize:
+                        17,
+
+                    fontWeight:
+                        "bold",
+
+                    fill:
+                        "#ffffff",
+
+                    stroke: {
+                        color:
+                            "#2a1c0f",
+
+                        width:
+                            4
+                    }
+                }
+            });
+
+
+        this.healthText.anchor.set(
+            0.5
+        );
+
+
+        this.healthText.position.set(
+            177,
+            27
+        );
+
+
+        this.healthContainer.addChild(
+            this.healthFrame
+        );
+
+        this.healthContainer.addChild(
+            this.healthFill
+        );
+
+        this.healthContainer.addChild(
+            this.heartIcon
+        );
+
+        this.healthContainer.addChild(
             this.healthText
         );
 
+
         this.container.addChild(
-            this.timeText
+            this.healthContainer
+        );
+
+
+        // ====================================
+        // SCORE
+        // ====================================
+
+        this.scoreContainer =
+            this.createCounter(
+                textures.scoreIcon
+            );
+
+
+        this.scoreText =
+            this.createCounterText();
+
+
+        this.scoreText.text =
+            "0";
+
+
+        this.scoreContainer.addChild(
+            this.scoreText
+        );
+
+
+        this.container.addChild(
+            this.scoreContainer
+        );
+
+
+        // ====================================
+        // TIMER
+        // ====================================
+
+        this.timerContainer =
+            this.createCounter(
+                textures.timeIcon
+            );
+
+
+        this.timerText =
+            this.createCounterText();
+
+
+        this.timerText.text =
+            "02:00";
+
+
+        this.timerContainer.addChild(
+            this.timerText
+        );
+
+
+        this.container.addChild(
+            this.timerContainer
+        );
+
+
+        // ====================================
+        // PAUSE BUTTON
+        // ====================================
+
+        this.pauseContainer =
+            new Container();
+
+
+        this.pauseButton =
+            new Sprite(
+                textures.pauseButtonNormal
+            );
+
+
+        this.pauseButton.anchor.set(
+            0.5
+        );
+
+
+        this.pauseButton.width =
+            50;
+
+        this.pauseButton.height =
+            50;
+
+
+        this.pauseButton.eventMode =
+            "static";
+
+
+        this.pauseButton.cursor =
+            "pointer";
+
+
+        const pauseIcon =
+            new Sprite(
+                textures.pauseIcon
+            );
+
+
+        pauseIcon.anchor.set(
+            0.5
+        );
+
+
+        pauseIcon.width =
+            21;
+
+        pauseIcon.height =
+            25;
+
+
+        // ------------------------------------
+        // HOVER
+        // ------------------------------------
+
+        this.pauseButton.on(
+            "pointerover",
+            () => {
+
+                this.pauseButton.texture =
+                    this.textures
+                        .pauseButtonHover;
+            }
+        );
+
+
+        this.pauseButton.on(
+            "pointerout",
+            () => {
+
+                this.pauseButton.texture =
+                    this.textures
+                        .pauseButtonNormal;
+            }
+        );
+
+
+        // ------------------------------------
+        // PRESSED
+        // ------------------------------------
+
+        this.pauseButton.on(
+            "pointerdown",
+            () => {
+
+                this.pauseButton.texture =
+                    this.textures
+                        .pauseButtonPressed;
+            }
+        );
+
+
+        this.pauseButton.on(
+            "pointerupoutside",
+            () => {
+
+                this.pauseButton.texture =
+                    this.textures
+                        .pauseButtonNormal;
+            }
+        );
+
+
+        // ------------------------------------
+        // CLICK
+        // ------------------------------------
+
+        this.pauseButton.on(
+            "pointerup",
+            () => {
+
+                this.pauseButton.texture =
+                    this.textures
+                        .pauseButtonHover;
+
+
+                onPause();
+            }
+        );
+
+
+        this.pauseContainer.addChild(
+            this.pauseButton
+        );
+
+
+        this.pauseContainer.addChild(
+            pauseIcon
+        );
+
+
+        this.container.addChild(
+            this.pauseContainer
         );
     }
 
-    update(
+
+    // ====================================
+    // CREATE COUNTER
+    // ====================================
+
+    private createCounter(
+        iconTexture:
+            HudTextures["scoreIcon"]
+    ) {
+
+        const container =
+            new Container();
+
+
+        const panel =
+            new Sprite(
+                this.textures.counterPanel
+            );
+
+
+        panel.width =
+            125;
+
+        panel.height =
+            44;
+
+
+        const icon =
+            new Sprite(
+                iconTexture
+            );
+
+
+        icon.anchor.set(
+            0.5
+        );
+
+
+        icon.width =
+            27;
+
+        icon.height =
+            27;
+
+
+        icon.position.set(
+            28,
+            22
+        );
+
+
+        container.addChild(
+            panel
+        );
+
+
+        container.addChild(
+            icon
+        );
+
+
+        return container;
+    }
+
+
+    // ====================================
+    // CREATE COUNTER TEXT
+    // ====================================
+
+    private createCounterText() {
+
+        const text =
+            new Text({
+                text:
+                    "",
+
+                style: {
+                    fontFamily:
+                        "Arial",
+
+                    fontSize:
+                        18,
+
+                    fontWeight:
+                        "bold",
+
+                    fill:
+                        "#ffffff",
+
+                    stroke: {
+                        color:
+                            "#25180d",
+
+                        width:
+                            4
+                    }
+                }
+            });
+
+
+        text.anchor.set(
+            0.5
+        );
+
+
+        text.position.set(
+            79,
+            22
+        );
+
+
+        return text;
+    }
+
+
+    // ====================================
+    // UPDATE
+    // ====================================
+
+    public update(
         score: number,
-        health: number,
+
+        currentHealth: number,
+
         maxHealth: number,
+
         remainingTime: number,
+
         screenWidth: number
     ) {
-        this.scoreText.text =
-            `SCORE: ${score}`;
+
+        // =================================
+        // HEALTH
+        // =================================
+
+        const healthPercentage =
+            Math.max(
+                0,
+
+                Math.min(
+                    1,
+
+                    currentHealth /
+                        maxHealth
+                )
+            );
+
+
+        // ---------------------------------
+        // HEALTH COLOR
+        // ---------------------------------
+
+        if (
+            healthPercentage > 0.6
+        ) {
+
+            this.healthFill.texture =
+                this.textures
+                    .healthFillGreen;
+
+        } else if (
+            healthPercentage > 0.3
+        ) {
+
+            this.healthFill.texture =
+                this.textures
+                    .healthFillAmber;
+
+        } else {
+
+            this.healthFill.texture =
+                this.textures
+                    .healthFillRed;
+        }
+
+
+        this.healthFill.width =
+            this.maxHealthFillWidth *
+            healthPercentage;
+
+
+        this.healthFill.height =
+            19;
+
 
         this.healthText.text =
-            `HP: ${health} / ${maxHealth}`;
+            `${Math.ceil(currentHealth)} / ${maxHealth}`;
+
+
+        // =================================
+        // SCORE
+        // =================================
+
+        this.scoreText.text =
+            score.toString();
+
+
+        // =================================
+        // TIMER
+        // =================================
 
         const totalSeconds =
-            Math.ceil(
-                remainingTime
+            Math.max(
+                0,
+
+                Math.ceil(
+                    remainingTime
+                )
             );
+
 
         const minutes =
             Math.floor(
-                totalSeconds / 60
+                totalSeconds /
+                60
             );
 
-        const seconds =
-            totalSeconds % 60;
 
-        const formattedTime =
+        const seconds =
+            totalSeconds %
+            60;
+
+
+        this.timerText.text =
             `${minutes
                 .toString()
-                .padStart(2, "0")}:${seconds
+                .padStart(
+                    2,
+                    "0"
+                )}:${seconds
                 .toString()
-                .padStart(2, "0")}`;
+                .padStart(
+                    2,
+                    "0"
+                )}`;
 
-        this.timeText.text =
-            `TIME: ${formattedTime}`;
 
-        this.timeText.position.set(
-            screenWidth - 20,
-            20
-        );
+        // =================================
+        // RESPONSIVE LAYOUT
+        // =================================
+
+        if (
+            screenWidth < 700
+        ) {
+
+            // MOBILE
+
+            this.healthContainer
+                .scale
+                .set(
+                    0.72
+                );
+
+
+            this.healthContainer
+                .position
+                .set(
+                    10,
+                    10
+                );
+
+
+            this.scoreContainer
+                .scale
+                .set(
+                    0.8
+                );
+
+
+            this.timerContainer
+                .scale
+                .set(
+                    0.8
+                );
+
+
+            this.pauseContainer
+                .scale
+                .set(
+                    0.8
+                );
+
+
+            this.scoreContainer
+                .position
+                .set(
+                    10,
+                    62
+                );
+
+
+            this.timerContainer
+                .position
+                .set(
+                    115,
+                    62
+                );
+
+
+            this.pauseContainer
+                .position
+                .set(
+                    250,
+                    80
+                );
+
+
+            return;
+        }
+
+
+        // =================================
+        // DESKTOP
+        // =================================
+
+        this.healthContainer
+            .scale
+            .set(
+                1
+            );
+
+
+        this.scoreContainer
+            .scale
+            .set(
+                1
+            );
+
+
+        this.timerContainer
+            .scale
+            .set(
+                1
+            );
+
+
+        this.pauseContainer
+            .scale
+            .set(
+                1
+            );
+
+
+        this.healthContainer
+            .position
+            .set(
+                22,
+                18
+            );
+
+
+        this.scoreContainer
+            .position
+            .set(
+                screenWidth -
+                    330,
+
+                22
+            );
+
+
+        this.timerContainer
+            .position
+            .set(
+                screenWidth -
+                    195,
+
+                22
+            );
+
+
+        this.pauseContainer
+            .position
+            .set(
+                screenWidth -
+                    42,
+
+                44
+            );
+    }
+
+
+    // ====================================
+    // DESTROY
+    // ====================================
+
+    public destroy() {
+
+        this.container.destroy({
+            children:
+                true
+        });
     }
 }

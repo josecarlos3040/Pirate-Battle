@@ -1,228 +1,232 @@
-import {
-    Container,
-    Sprite
-} from "pixi.js";
+import { Container, Sprite } from 'pixi.js';
 
-import type {
-    Texture
-} from "pixi.js";
+import type { Texture } from 'pixi.js';
 
+import { GAME_CONFIG } from '../config/gameConfig';
 
-import { GAME_CONFIG } from "../config/gameConfig";
-import { HealthBar } from "../ui/HealthBar";
+import { HealthBar } from '../ui/HealthBar';
+
+import { DamageFire } from '../effects/DamageFire';
 
 export class Shooter {
-    public readonly container: Container;
+	public readonly container: Container;
 
-    public readonly collisionRadius = 30;
+	public readonly collisionRadius = 30;
 
-    public health: number =
-        GAME_CONFIG.shooter.maxHealth;
-    private healthBar: HealthBar;
+	public health: number = GAME_CONFIG.shooter.maxHealth;
 
-    public isDead = false;
+	public isDead = false;
 
-    private speed =
-        GAME_CONFIG.shooter.movementSpeed;
+	private sprite: Sprite;
 
-    private rotationSpeed =
-        GAME_CONFIG.shooter.rotationSpeed;
+	private healthBar: HealthBar;
 
-    private shootCooldown = 0;
+	private damageFire: DamageFire;
 
-    constructor(
-        x: number,
-        y: number,
-        texture: Texture
-    ) {
-        this.container =
-            new Container();
+	private normalTexture: Texture;
 
-        const sprite =
-            new Sprite(texture);
+	private damagedTexture: Texture;
 
-        sprite.anchor.set(0.5);
+	private speed = GAME_CONFIG.shooter.movementSpeed;
 
-        sprite.width = 65;
-        sprite.height = 90;
+	private rotationSpeed = GAME_CONFIG.shooter.rotationSpeed;
 
-        sprite.rotation = Math.PI;
+	private shootCooldown = 0;
 
-        this.container.addChild(
-            sprite
-        );
+	constructor(
+		x: number,
+		y: number,
 
-        this.healthBar =
-            new HealthBar(55, 6);
+		texture: Texture,
+		damagedTexture: Texture,
 
-        this.healthBar.container.position.set(
-            0,
-            -55
-        );
+		fireTextures: Texture[],
+	) {
+		this.container = new Container();
 
-        this.container.addChild(
-            this.healthBar.container
-        );
+		this.container.position.set(x, y);
 
-        this.healthBar.update(
-            this.health,
-            GAME_CONFIG.shooter.maxHealth
-        );
+		this.normalTexture = texture;
 
-        this.container.position.set(
-            x,
-            y
-        );
-    }
+		this.damagedTexture = damagedTexture;
 
-    update(
-        deltaTime: number,
-        playerX: number,
-        playerY: number
-    ): boolean {
-        if (this.isDead) {
-            return false;
-        }
+		// ================================
+		// SHIP
+		// ================================
 
-        const dx =
-            playerX -
-            this.container.x;
+		this.sprite = new Sprite(this.normalTexture);
 
-        const dy =
-            playerY -
-            this.container.y;
+		this.sprite.anchor.set(0.5);
 
-        const distance =
-            Math.sqrt(
-                dx * dx + dy * dy
-            );
+		this.sprite.rotation = Math.PI;
 
-        // ===========================
-        // ROTATE TO PLAYER
-        // ===========================
+		this.sprite.width = 65;
 
-        const targetRotation =
-            Math.atan2(
-                dx,
-                -dy
-            );
+		this.sprite.height = 90;
 
-        let rotationDifference =
-            targetRotation -
-            this.container.rotation;
+		this.container.addChild(this.sprite);
 
-        rotationDifference =
-            Math.atan2(
-                Math.sin(
-                    rotationDifference
-                ),
-                Math.cos(
-                    rotationDifference
-                )
-            );
+		// ================================
+		// FIRE
+		// ================================
 
-        const maxRotation =
-            this.rotationSpeed *
-            deltaTime;
+		this.damageFire = new DamageFire(fireTextures);
 
-        rotationDifference =
-            Math.max(
-                -maxRotation,
-                Math.min(
-                    maxRotation,
-                    rotationDifference
-                )
-            );
+		this.damageFire.setRandomOffset(-12, 12, -16, 14);
 
-        this.container.rotation +=
-            rotationDifference;
+		this.container.addChild(this.damageFire.container);
 
-        // ===========================
-        // MOVEMENT
-        // ===========================
+		// ================================
+		// HEALTH BAR
+		// ================================
 
-        if (
-            distance >
-            GAME_CONFIG.shooter
-                .attackRange
-        ) {
-            this.container.x +=
-                Math.sin(
-                    this.container.rotation
-                ) *
-                this.speed *
-                deltaTime;
+		this.healthBar = new HealthBar(55, 6);
 
-            this.container.y -=
-                Math.cos(
-                    this.container.rotation
-                ) *
-                this.speed *
-                deltaTime;
-        }
+		this.healthBar.container.position.set(0, -55);
 
-        // ===========================
-        // COOLDOWN
-        // ===========================
+		this.container.addChild(this.healthBar.container);
 
-        if (this.shootCooldown > 0) {
-            this.shootCooldown -=
-                deltaTime;
-        }
+		this.healthBar.update(this.health, GAME_CONFIG.shooter.maxHealth);
 
-        // ===========================
-        // SHOOT
-        // ===========================
+		this.updateDamageVisual();
+	}
 
-        if (
-            distance <=
-                GAME_CONFIG.shooter
-                    .attackRange &&
-            this.shootCooldown <= 0
-        ) {
-            this.shootCooldown =
-                GAME_CONFIG.shooter
-                    .weapon
-                    .cooldown;
+	// ==================================
+	// UPDATE
+	// ==================================
 
-            return true;
-        }
+	public update(deltaTime: number, playerX: number, playerY: number): boolean {
+		if (this.isDead) {
+			return false;
+		}
 
-        return false;
-    }
+		// ================================
+		// COOLDOWN
+		// ================================
 
-    takeDamage(amount: number) {
-        if (this.isDead) {
-            return;
-        }
+		if (this.shootCooldown > 0) {
+			this.shootCooldown -= deltaTime;
+		}
 
-        this.health -= amount;
+		// ================================
+		// PLAYER DIRECTION
+		// ================================
 
-        this.healthBar.update(
-            this.health,
-            GAME_CONFIG.shooter.maxHealth
-        );
+		const dx = playerX - this.container.x;
 
-        console.log(
-            "Shooter HP:",
-            this.health
-        );
+		const dy = playerY - this.container.y;
 
-        if (this.health <= 0) {
-            this.health = 0;
+		const distance = Math.sqrt(dx * dx + dy * dy);
 
-            this.healthBar.update(
-                0,
-                GAME_CONFIG.shooter.maxHealth
-            );
+		const targetRotation = Math.atan2(dx, -dy);
 
-            this.isDead = true;
-        }
-    }
+		let rotationDifference = targetRotation - this.container.rotation;
 
-    destroy() {
-        this.container.destroy({
-            children: true
-        });
-    }
+		rotationDifference = Math.atan2(
+			Math.sin(rotationDifference),
+
+			Math.cos(rotationDifference),
+		);
+
+		const maxRotation = this.rotationSpeed * deltaTime;
+
+		rotationDifference = Math.max(
+			-maxRotation,
+
+			Math.min(maxRotation, rotationDifference),
+		);
+
+		this.container.rotation += rotationDifference;
+
+		// ================================
+		// MOVE TOWARD PLAYER
+		// ================================
+
+		if (distance > GAME_CONFIG.shooter.attackRange) {
+			this.container.x += Math.sin(this.container.rotation) * this.speed * deltaTime;
+
+			this.container.y -= Math.cos(this.container.rotation) * this.speed * deltaTime;
+
+			return false;
+		}
+
+		// ================================
+		// FIRE
+		// ================================
+
+		if (this.shootCooldown <= 0) {
+			this.shootCooldown = GAME_CONFIG.shooter.weapon.cooldown;
+
+			return true;
+		}
+
+		return false;
+	}
+
+	// ==================================
+	// DAMAGE
+	// ==================================
+
+	public takeDamage(amount: number) {
+		if (this.isDead) {
+			return;
+		}
+
+		this.health -= amount;
+
+		if (this.health < 0) {
+			this.health = 0;
+		}
+
+		this.healthBar.update(this.health, GAME_CONFIG.shooter.maxHealth);
+
+		this.updateDamageVisual();
+
+		if (this.health <= 0) {
+			this.isDead = true;
+		}
+	}
+
+	// ==================================
+	// DAMAGE VISUAL
+	// ==================================
+
+	private updateDamageVisual() {
+		const percentage = this.health / GAME_CONFIG.shooter.maxHealth;
+
+		// ------------------------------
+		// NORMAL SHIP
+		// ------------------------------
+
+		if (percentage > 0.6) {
+			this.sprite.texture = this.normalTexture;
+		} else {
+			// --------------------------
+			// DAMAGED SHIP
+			// --------------------------
+
+			this.sprite.texture = this.damagedTexture;
+		}
+
+		// Mantém tamanho mesmo se
+		// textura danificada tiver
+		// dimensões diferentes.
+		this.sprite.width = 65;
+
+		this.sprite.height = 90;
+
+		this.damageFire.update(this.health, GAME_CONFIG.shooter.maxHealth);
+	}
+
+	// ==================================
+	// DESTROY
+	// ==================================
+
+	public destroy() {
+		this.damageFire.destroy();
+
+		this.container.destroy({
+			children: true,
+		});
+	}
 }

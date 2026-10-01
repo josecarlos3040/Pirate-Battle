@@ -26,3 +26,11 @@ Install the dependencies:
 
 ```bash
 npm install
+
+## Live Demo
+
+[Play Pirate Battle](https://pirate-battle-seven.vercel.app/)
+
+## Repository
+
+[GitHub Repository](https://github.com/josecarlos3040/Pirate-Battle/tree/main)
