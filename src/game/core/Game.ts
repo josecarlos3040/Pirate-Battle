@@ -790,11 +790,10 @@ export class Game {
 		for (let attempt = 0; attempt < 20; attempt++) {
 			const side = Math.floor(Math.random() * 4);
 
-			let x = 0;
+            let x: number;
+            let y: number;
 
-			let y = 0;
-
-			switch (side) {
+            switch (side) {
 				// TOPO
 
 				case 0:
