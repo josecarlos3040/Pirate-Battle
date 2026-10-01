@@ -1,7 +1,3 @@
-import {
-    useState
-} from "react";
-
 import type {
     GameResult
 } from "../game/core/Game";
@@ -9,6 +5,8 @@ import type {
 type MainMenuProps = {
     onPlay: () => void;
     onOptions: () => void;
+    onRanking: () => void;
+    onHistory: () => void;
 
     lastResult:
         GameResult | null;
@@ -17,15 +15,10 @@ type MainMenuProps = {
 export function MainMenu({
     onPlay,
     onOptions,
+    onRanking,
+    onHistory,
     lastResult
 }: MainMenuProps) {
-    const [tab, setTab] =
-        useState<
-            "ranking" |
-            "history" |
-            null
-        >(null);
-
     return (
         <main
             style={{
@@ -66,7 +59,9 @@ export function MainMenu({
 
                 <hr />
 
-                <h2>Controls</h2>
+                <h2>
+                    Controls
+                </h2>
 
                 <p>
                     W — Move Forward
@@ -91,35 +86,16 @@ export function MainMenu({
                 <hr />
 
                 <button
-                    onClick={() =>
-                        setTab("ranking")
-                    }
+                    onClick={onRanking}
                 >
                     Ranking
                 </button>
 
                 <button
-                    onClick={() =>
-                        setTab("history")
-                    }
+                    onClick={onHistory}
                 >
                     Match History
                 </button>
-
-                {tab === "ranking" && (
-                    <p>
-                        Ranking integration
-                        coming next.
-                    </p>
-                )}
-
-                {tab === "history" && (
-                    <p>
-                        Match History
-                        integration coming
-                        next.
-                    </p>
-                )}
 
                 {lastResult && (
                     <>

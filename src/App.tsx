@@ -34,11 +34,21 @@ import {
     saveLastGameResult
 } from "./storage/gameStorage";
 
+import {
+    RankingScreen
+} from "./screens/RankingScreen";
+
+import {
+    MatchHistoryScreen
+} from "./screens/MatchHistoryScreen";
+
 type Screen =
     | "menu"
     | "game"
     | "options"
-    | "result";
+    | "result"
+    | "ranking"
+    | "history";
 
 function App() {
     const [screen, setScreen] =
@@ -171,17 +181,41 @@ function App() {
             />
         );
     }
+    if (screen === "ranking") {
+        return (
+            <RankingScreen
+                onBack={() =>
+                    setScreen("menu")
+                }
+            />
+        );
+    }
 
+    if (screen === "history") {
+        return (
+            <MatchHistoryScreen
+                onBack={() =>
+                    setScreen("menu")
+                }
+            />
+        );
+    }
     return (
         <MainMenu
-            onPlay={
-                startGame
-            }
+            onPlay={startGame}
+
             onOptions={() =>
-                setScreen(
-                    "options"
-                )
+                setScreen("options")
             }
+
+            onRanking={() =>
+                setScreen("ranking")
+            }
+
+            onHistory={() =>
+                setScreen("history")
+            }
+
             lastResult={
                 lastResult
             }

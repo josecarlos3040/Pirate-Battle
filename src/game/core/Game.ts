@@ -20,6 +20,8 @@ export type GameEndReason =
     "time" | "death";
 
 export type GameResult = {
+    matchId: string;
+
     score: number;
     timePlayed: number;
     reason: GameEndReason;
@@ -1182,8 +1184,14 @@ export class Game {
         );
 
         this.onGameOver({
-            score: this.score,
+            matchId:
+                crypto.randomUUID(),
+
+            score:
+                this.score,
+
             timePlayed,
+
             reason,
 
             config: {
