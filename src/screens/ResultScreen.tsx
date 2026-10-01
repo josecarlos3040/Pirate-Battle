@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import type {
     GameResult
@@ -30,6 +30,7 @@ type ResultScreenProps = {
     onMainMenu: () => void;
 };
 
+
 export function ResultScreen({
     result,
     onPlayAgain,
@@ -39,14 +40,10 @@ export function ResultScreen({
     const registerMatch =
         useRegisterMatch();
 
-    // Mantém o mesmo ID mesmo se o effect
-    // executar novamente no StrictMode.
-    const matchIdRef =
-        useRef(crypto.randomUUID());
-
 
     const matchRequest:
         CreateMatchRequest = {
+
         id:
             result.matchId,
 
@@ -71,6 +68,8 @@ export function ResultScreen({
         config:
             result.config
     };
+
+
     useEffect(() => {
         savePendingMatch(
             matchRequest
@@ -88,6 +87,7 @@ export function ResultScreen({
         );
     }, [result.matchId]);
 
+
     return (
         <main
             style={{
@@ -98,9 +98,11 @@ export function ResultScreen({
                 Match Result
             </h1>
 
+
             <p>
                 Score: {result.score}
             </p>
+
 
             <p>
                 Time Played:{" "}
@@ -109,14 +111,17 @@ export function ResultScreen({
                 )}s
             </p>
 
+
             <p>
                 End Reason:{" "}
                 {
-                    result.reason === "death"
+                    result.reason ===
+                    "death"
                         ? "Ship Destroyed"
                         : "Time Expired"
                 }
             </p>
+
 
             <p>
                 Session Time:{" "}
@@ -126,6 +131,7 @@ export function ResultScreen({
                 }s
             </p>
 
+
             <p>
                 Spawn Time:{" "}
                 {
@@ -133,6 +139,7 @@ export function ResultScreen({
                         .enemySpawnTime
                 }s
             </p>
+
 
             <p>
                 Match Registration:{" "}
@@ -145,35 +152,43 @@ export function ResultScreen({
 
                 {registerMatch.isError &&
                     "Failed"}
+            </p>
 
-                {registerMatch.isError && (
-                    <button
-                        onClick={() => {
-                            registerMatch.mutate(
-                                matchRequest,
-                                {
-                                    onSuccess: () => {
+
+            {registerMatch.isError && (
+                <button
+                    onClick={() => {
+                        registerMatch.mutate(
+                            matchRequest,
+                            {
+                                onSuccess:
+                                    () => {
                                         removePendingMatch(
                                             matchRequest.id
                                         );
                                     }
-                                }
-                            );
-                        }}
-                    >
-                        Retry Registration
-                    </button>
-                )}
-            </p>
+                            }
+                        );
+                    }}
+                >
+                    Retry Registration
+                </button>
+            )}
+
 
             <button
-                onClick={onPlayAgain}
+                onClick={
+                    onPlayAgain
+                }
             >
                 Play Again
             </button>
 
+
             <button
-                onClick={onMainMenu}
+                onClick={
+                    onMainMenu
+                }
             >
                 Main Menu
             </button>

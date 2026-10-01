@@ -13,6 +13,10 @@ import type {
     GameOptions
 } from "../game/config/gameOptions";
 
+import {
+    MobileControls
+} from "../components/MobileControls";
+
 type GameScreenProps = {
     options: GameOptions;
 
@@ -59,6 +63,11 @@ export function GameScreen({
                     setPaused
                 }
                 paused={paused}
+            />
+            <MobileControls
+                onPause={() =>
+                    setPaused(true)
+                }
             />
 
             {paused && (

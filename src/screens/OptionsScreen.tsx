@@ -112,26 +112,26 @@ export function OptionsScreen({
             </h1>
 
             <div>
-                <label>
-                    Game Session Time
-                </label>
+            <label
+                htmlFor="session-time"
+            >
+                Game Session Time
+            </label>
 
-                <input
-                    type="number"
-                    min={60}
-                    max={180}
-                    value={
-                        sessionTime
-                    }
-                    onChange={event =>
-                        setSessionTime(
-                            Number(
-                                event.target
-                                    .value
-                            )
+            <input
+                id="session-time"
+                type="number"
+                min={60}
+                max={180}
+                value={sessionTime}
+                onChange={event =>
+                    setSessionTime(
+                        Number(
+                            event.target.value
                         )
-                    }
-                />
+                    )
+                }
+            />
 
                 <span>
                     seconds
@@ -139,27 +139,29 @@ export function OptionsScreen({
             </div>
 
             <div>
-                <label>
-                    Enemy Spawn Time
-                </label>
+            <label
+                htmlFor="spawn-time"
+            >
+                Enemy Spawn Time
+            </label>
 
-                <input
-                    type="number"
-                    min={1}
-                    max={15}
-                    step={0.5}
-                    value={
-                        enemySpawnTime
-                    }
-                    onChange={event =>
-                        setEnemySpawnTime(
-                            Number(
-                                event.target
-                                    .value
-                            )
+            <input
+                id="spawn-time"
+                type="number"
+                min={1}
+                max={15}
+                step={0.5}
+                value={
+                    enemySpawnTime
+                }
+                onChange={event =>
+                    setEnemySpawnTime(
+                        Number(
+                            event.target.value
                         )
-                    }
-                />
+                    )
+                }
+            />
 
                 <span>
                     seconds
@@ -183,11 +185,14 @@ export function OptionsScreen({
                 Network Scenario
             </h2>
 
-            <label>
-                Mock API scenario
+            <label
+                htmlFor="network-scenario"
+            >
+                Mock API Scenario
             </label>
 
             <select
+                id="network-scenario"
                 value={networkScenario}
                 onChange={event =>
                     setScenario(
