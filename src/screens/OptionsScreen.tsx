@@ -10,6 +10,16 @@ import {
     GAME_OPTION_LIMITS
 } from "../game/config/gameOptions";
 
+import {
+    getNetworkScenario,
+    setNetworkScenario,
+    resetMockData
+} from "../mocks/networkScenario";
+
+import type {
+    NetworkScenario
+} from "../mocks/networkScenario";
+
 type OptionsScreenProps = {
     options: GameOptions;
 
@@ -25,6 +35,16 @@ export function OptionsScreen({
     onSave,
     onBack
 }: OptionsScreenProps) {
+
+    const [
+        networkScenario,
+        setScenario
+    ] =
+        useState<NetworkScenario>(
+            () =>
+                getNetworkScenario()
+        );
+
     const [
         sessionTime,
         setSessionTime
@@ -75,6 +95,10 @@ export function OptionsScreen({
 
         setError("");
 
+
+        setNetworkScenario(
+            networkScenario
+        );
         onSave({
             sessionTime,
             enemySpawnTime
@@ -152,6 +176,75 @@ export function OptionsScreen({
                 </p>
             )}
 
+
+            <hr />
+
+            <h2>
+                Network Scenario
+            </h2>
+
+            <label>
+                Mock API scenario
+            </label>
+
+            <select
+                value={networkScenario}
+                onChange={event =>
+                    setScenario(
+                        event.target
+                            .value as NetworkScenario
+                    )
+                }
+            >
+                <option value="success">
+                    Success
+                </option>
+
+                <option value="empty">
+                    Empty Lists
+                </option>
+
+                <option value="slow">
+                    Slow Network
+                </option>
+
+                <option value="variable-latency">
+                    Variable Latency
+                </option>
+
+                <option value="ranking-error">
+                    Ranking Error
+                </option>
+
+                <option value="history-error">
+                    History Error
+                </option>
+
+                <option value="server-error">
+                    Server Error
+                </option>
+
+                <option value="connection-error">
+                    Connection Error
+                </option>
+
+                <option value="post-timeout-after-save">
+                    Timeout After Save
+                </option>
+            </select>
+
+            <button
+                type="button"
+                onClick={() => {
+                    resetMockData();
+
+                    setScenario(
+                        "success"
+                    );
+                }}
+            >
+                Reset Mock Data
+            </button>
             <button
                 onClick={save}
             >

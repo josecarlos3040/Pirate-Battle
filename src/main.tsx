@@ -21,36 +21,44 @@ const queryClient =
     });
 
 async function enableMocking() {
-    if (
-        import.meta.env.MODE ===
-        "development"
-    ) {
-        const { worker } =
-            await import(
-                "./mocks/browser"
-            );
+    const { worker } =
+        await import(
+            "./mocks/browser"
+        );
 
-        await worker.start({
-            onUnhandledFrame:
-                "bypass"
-        });
-    }
+    await worker.start({
+        serviceWorker: {
+            url: "/mockServiceWorker.js"
+        },
+
+        onUnhandledFrame:
+            "warn"
+    });
 }
 
-enableMocking().then(() => {
-    createRoot(
-        document.getElementById(
-            "root"
-        )!
-    ).render(
-        <StrictMode>
-            <QueryClientProvider
-                client={
-                    queryClient
-                }
-            >
-                <App />
-            </QueryClientProvider>
-        </StrictMode>
-    );
-});
+enableMocking()
+    .then(() => {
+        console.log(
+            "MSW READY"
+        );
+
+        createRoot(
+            document.getElementById(
+                "root"
+            )!
+        ).render(
+            <StrictMode>
+                <QueryClientProvider
+                    client={queryClient}
+                >
+                    <App />
+                </QueryClientProvider>
+            </StrictMode>
+        );
+    })
+    .catch(error => {
+        console.error(
+            "MSW FAILED TO START:",
+            error
+        );
+    });

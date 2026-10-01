@@ -13,6 +13,16 @@ import {
     PLAYER_NAME
 } from "../storage/playerStorage";
 
+import {
+    savePendingMatch,
+    removePendingMatch
+} from "../storage/pendingMatches";
+
+import type {
+    CreateMatchRequest
+} from "../api/types";
+
+
 type ResultScreenProps = {
     result: GameResult;
 
@@ -34,32 +44,48 @@ export function ResultScreen({
     const matchIdRef =
         useRef(crypto.randomUUID());
 
+
+    const matchRequest:
+        CreateMatchRequest = {
+        id:
+            result.matchId,
+
+        playerId:
+            getPlayerId(),
+
+        playerName:
+            PLAYER_NAME,
+
+        date:
+            new Date().toISOString(),
+
+        score:
+            result.score,
+
+        duration:
+            result.timePlayed,
+
+        reason:
+            result.reason,
+
+        config:
+            result.config
+    };
     useEffect(() => {
-        registerMatch.mutate({
-            id:
-                result.matchId,
+        savePendingMatch(
+            matchRequest
+        );
 
-            playerId:
-                getPlayerId(),
-
-            playerName:
-                PLAYER_NAME,
-
-            date:
-                new Date().toISOString(),
-
-            score:
-                result.score,
-
-            duration:
-                result.timePlayed,
-
-            reason:
-                result.reason,
-
-            config:
-                result.config
-        });
+        registerMatch.mutate(
+            matchRequest,
+            {
+                onSuccess: () => {
+                    removePendingMatch(
+                        matchRequest.id
+                    );
+                }
+            }
+        );
     }, [result.matchId]);
 
     return (
@@ -119,6 +145,25 @@ export function ResultScreen({
 
                 {registerMatch.isError &&
                     "Failed"}
+
+                {registerMatch.isError && (
+                    <button
+                        onClick={() => {
+                            registerMatch.mutate(
+                                matchRequest,
+                                {
+                                    onSuccess: () => {
+                                        removePendingMatch(
+                                            matchRequest.id
+                                        );
+                                    }
+                                }
+                            );
+                        }}
+                    >
+                        Retry Registration
+                    </button>
+                )}
             </p>
 
             <button

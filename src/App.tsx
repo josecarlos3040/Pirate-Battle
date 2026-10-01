@@ -42,6 +42,10 @@ import {
     MatchHistoryScreen
 } from "./screens/MatchHistoryScreen";
 
+import {
+    usePendingMatchRecovery
+} from "./api/usePendingMatchRecovery";
+
 type Screen =
     | "menu"
     | "game"
@@ -51,6 +55,8 @@ type Screen =
     | "history";
 
 function App() {
+
+    usePendingMatchRecovery();
     const [screen, setScreen] =
         useState<Screen>(
             "menu"

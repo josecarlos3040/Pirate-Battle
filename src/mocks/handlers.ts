@@ -9,11 +9,31 @@ import type {
     RankingEntry
 } from "../api/types";
 
+import {
+    getNetworkScenario
+} from "./networkScenario";
+
+
+// ==================================
+// TYPES
+// ==================================
+
+type ApiError = {
+    error: string;
+};
+
+
+// ==================================
+// STORAGE
+// ==================================
+
 const STORAGE_KEY =
     "pirate-battle-api-matches";
 
+
 function loadMatches():
     MatchRecord[] {
+
     try {
         const saved =
             localStorage.getItem(
@@ -24,13 +44,16 @@ function loadMatches():
             return [];
         }
 
-        return JSON.parse(
-            saved
-        ) as MatchRecord[];
+        // JSON.parse retorna any,
+        // então não precisamos usar "as"
+        // aqui.
+        return JSON.parse(saved);
+
     } catch {
         return [];
     }
 }
+
 
 function saveMatches(
     matches: MatchRecord[]
@@ -41,45 +64,115 @@ function saveMatches(
     );
 }
 
+
+// ==================================
+// DELAY
+// ==================================
+
+function wait(
+    milliseconds: number
+): Promise<void> {
+
+    return new Promise(
+        resolve => {
+            window.setTimeout(
+                resolve,
+                milliseconds
+            );
+        }
+    );
+}
+
+
+// ==================================
+// HANDLERS
+// ==================================
+
 export const handlers = [
 
-    // ================================
+    // ==================================
     // POST MATCH
-    // ================================
+    // ==================================
 
-    http.post(
+    http.post<
+        never,
+        CreateMatchRequest,
+        MatchRecord | ApiError
+    >(
         "/api/matches",
 
         async ({ request }) => {
-            const rawBody =
+
+            // O tipo já vem do generic
+            // do http.post.
+            //
+            // NÃO precisa de:
+            // as CreateMatchRequest
+
+            const body =
                 await request.json();
 
+
+            const scenario =
+                getNetworkScenario();
+
+
+            // --------------------------
+            // SERVER ERROR
+            // --------------------------
+
             if (
-                !rawBody ||
-                typeof rawBody !== "object"
+                scenario ===
+                "server-error"
             ) {
                 return HttpResponse.json(
                     {
                         error:
-                            "Invalid request body"
+                            "Server unavailable"
                     },
                     {
-                        status: 400
+                        status: 500
                     }
                 );
             }
 
-            const body =
-                rawBody as CreateMatchRequest;
+
+            // --------------------------
+            // CONNECTION ERROR
+            // --------------------------
+
+            if (
+                scenario ===
+                "connection-error"
+            ) {
+                return HttpResponse.error();
+            }
+
+
+            // --------------------------
+            // LOAD CURRENT MATCHES
+            // --------------------------
 
             const matches =
                 loadMatches();
 
+
+            // --------------------------
+            // IDEMPOTENCY
+            // --------------------------
+            //
+            // Se o mesmo matchId já foi
+            // salvo, devolve o registro
+            // existente em vez de criar
+            // outro.
+
             const existing =
                 matches.find(
                     match =>
-                        match.id === body.id
+                        match.id ===
+                        body.id
                 );
+
 
             if (existing) {
                 return HttpResponse.json(
@@ -87,13 +180,81 @@ export const handlers = [
                 );
             }
 
-            const record: MatchRecord = {
-                ...body
+
+            // --------------------------
+            // CREATE MATCH
+            // --------------------------
+
+            const record:
+                MatchRecord = {
+                id:
+                    body.id,
+
+                playerId:
+                    body.playerId,
+
+                playerName:
+                    body.playerName,
+
+                date:
+                    body.date,
+
+                score:
+                    body.score,
+
+                duration:
+                    body.duration,
+
+                reason:
+                    body.reason,
+
+                config:
+                    body.config
             };
 
-            matches.push(record);
 
-            saveMatches(matches);
+            matches.push(
+                record
+            );
+
+
+            saveMatches(
+                matches
+            );
+
+
+            // --------------------------
+            // TIMEOUT AFTER SAVE
+            // --------------------------
+            //
+            // O servidor já salvou,
+            // mas demora mais que o
+            // timeout configurado
+            // no Axios.
+
+            if (
+                scenario ===
+                "post-timeout-after-save"
+            ) {
+                await wait(
+                    6000
+                );
+            }
+
+
+            // --------------------------
+            // SLOW NETWORK
+            // --------------------------
+
+            if (
+                scenario ===
+                "slow"
+            ) {
+                await wait(
+                    1500
+                );
+            }
+
 
             return HttpResponse.json(
                 record,
@@ -104,18 +265,21 @@ export const handlers = [
         }
     ),
 
-    // ================================
+
+    // ==================================
     // MATCH HISTORY
-    // ================================
+    // ==================================
 
     http.get(
         "/api/matches",
 
-        ({ request }) => {
+        async ({ request }) => {
+
             const url =
                 new URL(
                     request.url
                 );
+
 
             const page =
                 Number(
@@ -124,6 +288,7 @@ export const handlers = [
                     )
                 ) || 1;
 
+
             const pageSize =
                 Number(
                     url.searchParams.get(
@@ -131,27 +296,135 @@ export const handlers = [
                     )
                 ) || 5;
 
+
+            const scenario =
+                getNetworkScenario();
+
+
+            // --------------------------
+            // SLOW NETWORK
+            // --------------------------
+
+            if (
+                scenario ===
+                "slow"
+            ) {
+                await wait(
+                    1500
+                );
+            }
+
+
+            // --------------------------
+            // VARIABLE LATENCY
+            // --------------------------
+
+            if (
+                scenario ===
+                "variable-latency"
+            ) {
+                await wait(
+                    page % 2 === 0
+                        ? 200
+                        : 1200
+                );
+            }
+
+
+            // --------------------------
+            // HISTORY ERROR
+            // --------------------------
+
+            if (
+                scenario ===
+                    "history-error" ||
+                scenario ===
+                    "server-error"
+            ) {
+                return HttpResponse.json(
+                    {
+                        error:
+                            "History unavailable"
+                    },
+                    {
+                        status: 500
+                    }
+                );
+            }
+
+
+            // --------------------------
+            // CONNECTION ERROR
+            // --------------------------
+
+            if (
+                scenario ===
+                "connection-error"
+            ) {
+                return HttpResponse.error();
+            }
+
+
+            // --------------------------
+            // EMPTY
+            // --------------------------
+
+            if (
+                scenario ===
+                "empty"
+            ) {
+                return HttpResponse.json({
+                    items: [],
+                    page,
+                    pageSize,
+                    totalItems: 0,
+                    totalPages: 1
+                });
+            }
+
+
+            // --------------------------
+            // LOAD MATCHES
+            // --------------------------
+
             const matches =
                 loadMatches()
                     .sort(
-                        (a, b) =>
-                            new Date(
-                                b.date
-                            ).getTime() -
-                            new Date(
-                                a.date
-                            ).getTime()
+                        (a, b) => {
+
+                            const dateB =
+                                new Date(
+                                    b.date
+                                ).getTime();
+
+                            const dateA =
+                                new Date(
+                                    a.date
+                                ).getTime();
+
+                            return (
+                                dateB -
+                                dateA
+                            );
+                        }
                     );
+
+
+            // --------------------------
+            // PAGINATION
+            // --------------------------
 
             const start =
                 (page - 1) *
                 pageSize;
+
 
             const items =
                 matches.slice(
                     start,
                     start + pageSize
                 );
+
 
             return HttpResponse.json({
                 items,
@@ -174,18 +447,25 @@ export const handlers = [
         }
     ),
 
-    // ================================
+
+    // ==================================
     // RANKING
-    // ================================
+    // ==================================
 
     http.get(
         "/api/ranking",
 
-        ({ request }) => {
+        async ({ request }) => {
+
             const url =
                 new URL(
                     request.url
                 );
+
+
+            // IMPORTANTE:
+            // page é declarado ANTES
+            // de ser usado na latência.
 
             const page =
                 Number(
@@ -194,6 +474,7 @@ export const handlers = [
                     )
                 ) || 1;
 
+
             const pageSize =
                 Number(
                     url.searchParams.get(
@@ -201,10 +482,103 @@ export const handlers = [
                     )
                 ) || 5;
 
+
+            const scenario =
+                getNetworkScenario();
+
+
+            // --------------------------
+            // SLOW NETWORK
+            // --------------------------
+
+            if (
+                scenario ===
+                "slow"
+            ) {
+                await wait(
+                    1500
+                );
+            }
+
+
+            // --------------------------
+            // VARIABLE LATENCY
+            // --------------------------
+
+            if (
+                scenario ===
+                "variable-latency"
+            ) {
+                await wait(
+                    page % 2 === 0
+                        ? 200
+                        : 1200
+                );
+            }
+
+
+            // --------------------------
+            // RANKING ERROR
+            // --------------------------
+
+            if (
+                scenario ===
+                    "ranking-error" ||
+                scenario ===
+                    "server-error"
+            ) {
+                return HttpResponse.json(
+                    {
+                        error:
+                            "Ranking unavailable"
+                    },
+                    {
+                        status: 500
+                    }
+                );
+            }
+
+
+            // --------------------------
+            // CONNECTION ERROR
+            // --------------------------
+
+            if (
+                scenario ===
+                "connection-error"
+            ) {
+                return HttpResponse.error();
+            }
+
+
+            // --------------------------
+            // EMPTY
+            // --------------------------
+
+            if (
+                scenario ===
+                "empty"
+            ) {
+                return HttpResponse.json({
+                    items: [],
+                    page,
+                    pageSize,
+                    totalItems: 0,
+                    totalPages: 1
+                });
+            }
+
+
+            // --------------------------
+            // SORT RANKING
+            // --------------------------
+
             const matches =
                 loadMatches()
                     .sort(
                         (a, b) => {
+
+                            // Maior score primeiro
                             if (
                                 b.score !==
                                 a.score
@@ -215,7 +589,10 @@ export const handlers = [
                                 );
                             }
 
-                            // desempate determinístico
+
+                            // Em caso de empate:
+                            // menor duração primeiro
+
                             return (
                                 a.duration -
                                 b.duration
@@ -223,43 +600,60 @@ export const handlers = [
                         }
                     );
 
+
+            // --------------------------
+            // CREATE RANKING ENTRIES
+            // --------------------------
+
             const ranking:
                 RankingEntry[] =
                 matches.map(
                     (
                         match,
                         index
-                    ) => ({
-                        position:
-                            index + 1,
+                    ) => {
 
-                        playerId:
-                            match.playerId,
+                        return {
+                            position:
+                                index + 1,
 
-                        playerName:
-                            match.playerName,
+                            playerId:
+                                match.playerId,
 
-                        score:
-                            match.score,
+                            playerName:
+                                match.playerName,
 
-                        matchId:
-                            match.id,
+                            score:
+                                match.score,
 
-                        date:
-                            match.date
-                    })
+                            matchId:
+                                match.id,
+
+                            date:
+                                match.date
+                        };
+                    }
                 );
+
+
+            // --------------------------
+            // PAGINATION
+            // --------------------------
 
             const start =
                 (page - 1) *
                 pageSize;
 
+
+            const items =
+                ranking.slice(
+                    start,
+                    start + pageSize
+                );
+
+
             return HttpResponse.json({
-                items:
-                    ranking.slice(
-                        start,
-                        start + pageSize
-                    ),
+                items,
 
                 page,
                 pageSize,
@@ -278,4 +672,5 @@ export const handlers = [
             });
         }
     )
+
 ];
