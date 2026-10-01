@@ -1,7 +1,12 @@
 import {
     Container,
-    Graphics
+    Sprite
 } from "pixi.js";
+
+import type {
+    Texture
+} from "pixi.js";
+
 
 import { GAME_CONFIG } from "../config/gameConfig";
 import { HealthBar } from "../ui/HealthBar";
@@ -27,30 +32,32 @@ export class Shooter {
 
     constructor(
         x: number,
-        y: number
+        y: number,
+        texture: Texture
     ) {
         this.container =
             new Container();
 
-        const body =
-            new Graphics();
+        const sprite =
+            new Sprite(texture);
 
-        body
-            .poly([
-                0, -35,
-                25, 25,
-                0, 15,
-                -25, 25
-            ])
-            .fill(0x4488ff);
+        sprite.anchor.set(0.5);
 
-        this.container.addChild(body);
+        sprite.width = 65;
+        sprite.height = 90;
+
+        sprite.rotation = Math.PI;
+
+        this.container.addChild(
+            sprite
+        );
+
         this.healthBar =
             new HealthBar(55, 6);
 
         this.healthBar.container.position.set(
             0,
-            -45
+            -55
         );
 
         this.container.addChild(

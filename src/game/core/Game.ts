@@ -1,6 +1,5 @@
 import type {
-    Application,
-    Texture
+    Application
 } from "pixi.js";
 
 import { InputManager } from "./InputManager";
@@ -11,6 +10,7 @@ import { Shooter } from "../entities/Shooter";
 import { Island } from "../entities/Island";
 
 import { Hud } from "../ui/Hud";
+import type { GameAssets } from "./GameAssets";
 
 import { GAME_CONFIG } from "../config/gameConfig";
 
@@ -29,6 +29,7 @@ export class Game {
 
     private input: InputManager;
     private player: Player;
+    private assets: GameAssets;
 
     private projectiles: Projectile[] = [];
     private chasers: Chaser[] = [];
@@ -39,13 +40,20 @@ export class Game {
     private hud: Hud;
 
     private isGameOver = false;
-
-    private remainingTime: number =
-        GAME_CONFIG.match.duration;
+    private isPaused = false;
 
     private onGameOver: (
         result: GameResult
     ) => void;
+
+    private onPauseChange: (
+        paused: boolean
+    ) => void;
+
+    private remainingTime: number =
+        GAME_CONFIG.match.duration;
+
+
 
     private frontShootCooldown = 0;
     private leftShootCooldown = 0;
@@ -55,21 +63,33 @@ export class Game {
 
     constructor(
         app: Application,
-        playerTexture: Texture,
+        assets: GameAssets,
+
+        
         onGameOver: (
             result: GameResult
+        ) => void,
+
+        onPauseChange: (
+            paused: boolean
         ) => void
     ) {
         this.app = app;
 
-        this.onGameOver = onGameOver;
+        this.onGameOver =
+            onGameOver;
+
+        this.onPauseChange =
+            onPauseChange;
 
         this.app.stage.sortableChildren = true;
+        
+        this.assets = assets;
 
         this.input = new InputManager();
 
         this.player = new Player(
-            playerTexture
+            assets.playerShip
         );
         this.player.container.zIndex = 10;
 
@@ -91,6 +111,21 @@ export class Game {
             this.hud.container
         );
 
+        window.addEventListener(
+            "keydown",
+            this.handlePauseKey
+        );
+
+        window.addEventListener(
+            "blur",
+            this.handleWindowBlur
+        );
+
+        document.addEventListener(
+            "visibilitychange",
+            this.handleVisibilityChange
+        );
+
         app.ticker.add(this.update);
 
     }
@@ -104,6 +139,9 @@ export class Game {
             this.app.ticker.deltaMS / 1000;
 
         if (this.isGameOver) {
+            return;
+        }
+        if (this.isPaused) {
             return;
         }
 
@@ -667,7 +705,8 @@ export class Game {
 
         const chaser = new Chaser(
             position.x,
-            position.y
+            position.y,
+            this.assets.chaserShip
         );
 
         chaser.container.zIndex = 10;
@@ -692,7 +731,8 @@ export class Game {
         const shooter =
             new Shooter(
                 position.x,
-                position.y
+                position.y,
+                this.assets.shooterShip
             );
 
         shooter.container.zIndex = 10;
@@ -847,7 +887,8 @@ export class Game {
                     .frontWeapon
                     .damage,
 
-                "player"
+                "player",
+                this.assets.cannonball
             );
 
         projectile.container.zIndex = 20;
@@ -952,7 +993,9 @@ export class Game {
                         .sideWeapon
                         .damage,
 
-                    "player"
+                    "player",
+                    this.assets.cannonball
+
                 );
 
             projectile.container.zIndex = 20;
@@ -1002,7 +1045,8 @@ export class Game {
                 .weapon
                 .damage,
 
-            "enemy"
+            "enemy",
+            this.assets.cannonball
         );
 
         projectile.container.zIndex = 20;
@@ -1125,7 +1169,64 @@ export class Game {
             reason
         });
     }
-    
+
+    public setPaused(paused: boolean) 
+    {
+        if (this.isGameOver) {
+            return;
+        }
+
+        if (
+            this.isPaused === paused
+        ) {
+            return;
+        }
+
+        this.isPaused = paused;
+
+        // Evita tecla presa
+        this.input.clear();
+
+        this.onPauseChange(
+            this.isPaused
+        );
+    }
+
+    private handlePauseKey = (event: KeyboardEvent) => 
+    {
+        if (event.code !== "Escape") {
+            return;
+        }
+
+        if (event.repeat) {
+            return;
+        }
+
+        if (this.isGameOver) {
+            return;
+        }
+
+        this.setPaused(
+            !this.isPaused
+        );
+    };
+
+    private handleWindowBlur = () => {
+        if (this.isGameOver) {
+            return;
+        }
+
+        this.setPaused(true);
+    };
+
+    private handleVisibilityChange = () => {
+        if (
+            document.hidden &&
+            !this.isGameOver
+        ) {
+            this.setPaused(true);
+        }
+    };
     // ===================================
     // DESTROY
     // ===================================
@@ -1133,6 +1234,21 @@ export class Game {
     destroy() {
         this.app.ticker.remove(
             this.update
+        );
+
+        window.removeEventListener(
+            "keydown",
+            this.handlePauseKey
+        );
+
+        window.removeEventListener(
+            "blur",
+            this.handleWindowBlur
+        );
+
+        document.removeEventListener(
+            "visibilitychange",
+            this.handleVisibilityChange
         );
 
         this.input.destroy();
@@ -1174,5 +1290,7 @@ export class Game {
         });
 
         this.islands = [];
+
+        
     }
 }

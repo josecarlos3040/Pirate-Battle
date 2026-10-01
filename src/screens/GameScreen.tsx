@@ -11,12 +11,13 @@ import type {
 
 export function GameScreen() {
     const [result, setResult] =
-        useState<GameResult | null>(
-            null
-        );
+        useState<GameResult | null>(null);
 
     const [gameId, setGameId] =
         useState(0);
+
+    const [paused, setPaused] =
+        useState(false);
 
     const handleGameOver =
         useCallback(
@@ -28,6 +29,8 @@ export function GameScreen() {
 
     const playAgain = () => {
         setResult(null);
+
+        setPaused(false);
 
         setGameId(
             current =>
@@ -49,7 +52,60 @@ export function GameScreen() {
                 onGameOver={
                     handleGameOver
                 }
+                onPauseChange={
+                    setPaused
+                }
+                paused={
+                    paused
+                }
             />
+
+            {paused && !result && (
+                <div
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+
+                        background:
+                            "rgba(0, 0, 0, 0.65)",
+
+                        zIndex: 900
+                    }}
+                >
+                    <div
+                        style={{
+                            background: "white",
+                            color: "#111",
+
+                            padding: "32px",
+
+                            borderRadius: "12px",
+
+                            textAlign: "center"
+                        }}
+                    >
+                        <h1>
+                            Paused
+                        </h1>
+
+                        <p>
+                            Press ESC or click Resume
+                        </p>
+
+                        <button
+                            onClick={() =>
+                                setPaused(false)
+                            }
+                        >
+                            Resume
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {result && (
                 <div

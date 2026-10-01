@@ -1,7 +1,12 @@
 import {
     Container,
-    Graphics
+    Sprite
 } from "pixi.js";
+
+import type {
+    Texture
+} from "pixi.js";
+
 
 import { GAME_CONFIG } from "../config/gameConfig";
 import { HealthBar } from "../ui/HealthBar";
@@ -22,29 +27,33 @@ export class Chaser {
 
     constructor(
         x: number,
-        y: number
+        y: number,
+        texture: Texture
     ) {
-        this.container = new Container();
+        this.container =
+            new Container();
 
-        // Placeholder temporário do navio inimigo
-        const body = new Graphics();
+        const sprite =
+            new Sprite(texture);
 
-        body
-            .poly([
-                0, -35,
-                25, 25,
-                0, 15,
-                -25, 25,
-            ])
-            .fill(0xff4444);
+        sprite.anchor.set(0.5);
 
-        this.container.addChild(body);
+        sprite.width = 65;
+        sprite.height = 90;
 
-        this.healthBar =new HealthBar(55, 6);
+        // Se vier invertido:
+        sprite.rotation = Math.PI;
+
+        this.container.addChild(
+            sprite
+        );
+
+        this.healthBar =
+            new HealthBar(55, 6);
 
         this.healthBar.container.position.set(
             0,
-            -45
+            -55
         );
 
         this.container.addChild(

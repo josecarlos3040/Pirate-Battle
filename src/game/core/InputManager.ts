@@ -2,15 +2,40 @@ export class InputManager {
     private keys = new Set<string>();
 
     constructor() {
-        window.addEventListener("keydown", this.onKeyDown);
-        window.addEventListener("keyup", this.onKeyUp);
+        window.addEventListener(
+            "keydown",
+            this.onKeyDown
+        );
+
+        window.addEventListener(
+            "keyup",
+            this.onKeyUp
+        );
     }
 
-    private onKeyDown = (event: KeyboardEvent) => {
+    private onKeyDown = (
+        event: KeyboardEvent
+    ) => {
+        const gameKeys = [
+            "KeyW",
+            "KeyA",
+            "KeyD",
+            "Space",
+            "KeyQ",
+            "KeyE",
+            "Escape",
+        ];
+
+        if (gameKeys.includes(event.code)) {
+            event.preventDefault();
+        }
+
         this.keys.add(event.code);
     };
 
-    private onKeyUp = (event: KeyboardEvent) => {
+    private onKeyUp = (
+        event: KeyboardEvent
+    ) => {
         this.keys.delete(event.code);
     };
 
@@ -18,10 +43,21 @@ export class InputManager {
         return this.keys.has(code);
     }
 
-    destroy() {
-        window.removeEventListener("keydown", this.onKeyDown);
-        window.removeEventListener("keyup", this.onKeyUp);
-
+    clear() {
         this.keys.clear();
+    }
+
+    destroy() {
+        window.removeEventListener(
+            "keydown",
+            this.onKeyDown
+        );
+
+        window.removeEventListener(
+            "keyup",
+            this.onKeyUp
+        );
+
+        this.clear();
     }
 }

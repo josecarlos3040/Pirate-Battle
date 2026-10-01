@@ -1,4 +1,11 @@
-import { Container, Graphics } from "pixi.js";
+import {
+    Container,
+    Sprite
+} from "pixi.js";
+
+import type {
+    Texture
+} from "pixi.js";
 
 export type ProjectileOwner =
     "player" | "enemy";
@@ -26,25 +33,27 @@ export class Projectile {
         speed: number,
         lifetime: number,
         damage: number,
-        owner: ProjectileOwner
+        owner: ProjectileOwner,
+        texture: Texture
     ) {
         this.container = new Container();
 
-        const ball = new Graphics();
-
-        ball
-            .circle(0, 0, this.radius)
-            .fill(
-                owner === "player"
-                    ? 0x222222
-                    : 0xff4444
-            );
-
-        this.container.addChild(ball);
-
+        // POSIÇÃO INICIAL DO TIRO
         this.container.position.set(
             x,
             y
+        );
+
+        const sprite =
+            new Sprite(texture);
+
+        sprite.anchor.set(0.5);
+
+        sprite.width = 14;
+        sprite.height = 14;
+
+        this.container.addChild(
+            sprite
         );
 
         this.directionX =
