@@ -524,7 +524,7 @@ export function OptionsScreen({
 
                         <AdjustButton
                             type="minus"
-                            label="Decrease enemy spawn time"
+                            label="Decrease spawn interval"
                             onClick={() =>
                                 changeSpawnTime(-0.5)
                             }
@@ -571,7 +571,7 @@ export function OptionsScreen({
 
                         <AdjustButton
                             type="plus"
-                            label="Increase enemy spawn time"
+                            label="Increase spawn interval"
                             onClick={() =>
                                 changeSpawnTime(0.5)
                             }
@@ -635,56 +635,56 @@ export function OptionsScreen({
                     </label>
 
                     <select
-                        id="network-scenario"
-                        value={networkScenario}
-                        onChange={event => {
+                    id="network-scenario"
+                    value={networkScenario}
+                    onChange={event => {
 
-                            const value =
-                                event.currentTarget.value;
+                        const value =
+                            event.currentTarget.value;
 
-                            if (
-                                isNetworkScenario(value)
-                            ) {
-                                setScenario(value);
-                            }
-                        }}
-                    >
-                        <option value="success">
-                            Success
-                        </option>
+                        if (
+                            isNetworkScenario(value)
+                        ) {
+                            setScenario(value);
+                        }
+                    }}
+                >
+                    <option value="success">
+                        Success
+                    </option>
 
-                        <option value="empty">
-                            Empty Lists
-                        </option>
+                    <option value="empty">
+                        Empty Lists
+                    </option>
 
-                        <option value="slow">
-                            Slow Network
-                        </option>
+                    <option value="slow">
+                        Slow Network
+                    </option>
 
-                        <option value="variable-latency">
-                            Variable Latency
-                        </option>
+                    <option value="variable-latency">
+                        Variable Latency
+                    </option>
 
-                        <option value="ranking-error">
-                            Ranking Error
-                        </option>
+                    <option value="ranking-error">
+                        Ranking Error
+                    </option>
 
-                        <option value="history-error">
-                            History Error
-                        </option>
+                    <option value="history-error">
+                        History Error
+                    </option>
 
-                        <option value="server-error">
-                            Server Error
-                        </option>
+                    <option value="server-error">
+                        Server Error
+                    </option>
 
-                        <option value="connection-error">
-                            Connection Error
-                        </option>
+                    <option value="connection-error">
+                        Connection Error
+                    </option>
 
-                        <option value="post-timeout-after-save">
-                            Timeout After Save
-                        </option>
-                    </select>
+                    <option value="post-timeout-after-save">
+                        Timeout After Save
+                    </option>
+                </select>
 
 
                     <button

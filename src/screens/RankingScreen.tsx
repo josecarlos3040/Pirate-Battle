@@ -275,7 +275,7 @@ export function RankingScreen({
                     ranking.data.items.length === 0 && (
 
                     <div className="log-message">
-                        No ranking entries yet.
+                        No ranking entries.
                     </div>
 
                 )}

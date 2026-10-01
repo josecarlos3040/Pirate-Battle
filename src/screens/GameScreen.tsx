@@ -1,4 +1,5 @@
 import {
+    useEffect,
     useState
 } from "react";
 
@@ -149,6 +150,64 @@ export function GameScreen({
     ] = useState(
         false
     );
+
+        useEffect(() => {
+
+        const handleEscape =
+            (
+                event:
+                    KeyboardEvent
+            ) => {
+
+                if (
+                    event.code !==
+                    "Escape"
+                ) {
+                    return;
+                }
+
+
+                if (event.repeat) {
+                    return;
+                }
+
+
+                /*
+                * O Game também possui listener
+                * de Escape.
+                *
+                * Como esta tela é montada antes
+                * da inicialização assíncrona do
+                * Pixi, centralizamos o toggle
+                * aqui e impedimos o segundo
+                * listener de alternar novamente.
+                */
+                event.stopImmediatePropagation();
+
+
+                setPaused(
+                    current =>
+                        !current
+                );
+            };
+
+
+        window.addEventListener(
+            "keydown",
+            handleEscape
+        );
+
+
+        return () => {
+
+            window.removeEventListener(
+                "keydown",
+                handleEscape
+            );
+
+        };
+
+    }, []);
 
 
     return (

@@ -2,6 +2,10 @@ import {
     useState
 } from "react";
 
+import type {
+    GameResult
+} from "../game/core/Game";
+
 import titlePirateBattleUrl
     from "../assets/png/default/ui/menu/title_pirate_battle.png";
 
@@ -23,6 +27,8 @@ type MainMenuProps = {
     onOptions: () => void;
     onRanking: () => void;
     onHistory: () => void;
+
+    lastResult?: GameResult | null;
 };
 
 
@@ -129,6 +135,9 @@ export function MainMenu({
                 }}
             >
 
+                <h1 className="sr-only">
+                    Pirate Battle
+                </h1>
                 <img
                     className="pirate-title"
                     src={
