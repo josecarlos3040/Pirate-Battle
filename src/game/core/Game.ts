@@ -14,6 +14,16 @@ import { Hud } from "../ui/Hud";
 
 import { GAME_CONFIG } from "../config/gameConfig";
 
+
+export type GameEndReason =
+    "time" | "death";
+
+export type GameResult = {
+    score: number;
+    timePlayed: number;
+    reason: GameEndReason;
+};
+
 export class Game {
     private app: Application;
 
@@ -28,8 +38,14 @@ export class Game {
     private score = 0;
     private hud: Hud;
 
+    private isGameOver = false;
+
     private remainingTime: number =
         GAME_CONFIG.match.duration;
+
+    private onGameOver: (
+        result: GameResult
+    ) => void;
 
     private frontShootCooldown = 0;
     private leftShootCooldown = 0;
@@ -39,11 +55,15 @@ export class Game {
 
     constructor(
         app: Application,
-        playerTexture: Texture
+        playerTexture: Texture,
+        onGameOver: (
+            result: GameResult
+        ) => void
     ) {
         this.app = app;
 
-        // Permite usar zIndex
+        this.onGameOver = onGameOver;
+
         this.app.stage.sortableChildren = true;
 
         this.input = new InputManager();
@@ -83,12 +103,18 @@ export class Game {
         const deltaTime =
             this.app.ticker.deltaMS / 1000;
 
+        if (this.isGameOver) {
+            return;
+        }
 
-        this.remainingTime -=
-            deltaTime;
+        this.remainingTime -= deltaTime;
 
-        if (this.remainingTime < 0) {
+        if (this.remainingTime <= 0) {
             this.remainingTime = 0;
+
+            this.endGame("time");
+
+            return;
         }
         // ===================================
         // PLAYER
@@ -361,6 +387,8 @@ export class Game {
                     "Chaser hit player"
                 );
             }
+
+
         }
 
         // CHASER x ISLAND
@@ -523,6 +551,14 @@ export class Game {
             }
         }
 
+        // CHECK PLAYER DEATH
+        // ===================================
+
+        if (this.player.isDead) {
+            this.endGame("death");
+
+            return;
+        }
         // PLAYER x ISLAND
         // ===================================
 
@@ -1063,6 +1099,33 @@ export class Game {
         };
     }
 
+
+    private endGame(
+        reason: GameEndReason
+    ) {
+        if (this.isGameOver) {
+            return;
+        }
+
+        this.isGameOver = true;
+
+        const timePlayed =
+            GAME_CONFIG.match.duration -
+            this.remainingTime;
+
+        console.log(
+            "GAME OVER",
+            reason,
+            this.score
+        );
+
+        this.onGameOver({
+            score: this.score,
+            timePlayed,
+            reason
+        });
+    }
+    
     // ===================================
     // DESTROY
     // ===================================

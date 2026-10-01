@@ -1,10 +1,19 @@
 import { useEffect, useRef } from "react";
 import { Application, Assets } from "pixi.js";
-import { Game } from "../game/core/Game";
+
+import { Game, type GameResult } from "../game/core/Game";
 
 import playerShipUrl from "../assets/png/default/ships/ship_1.png";
 
-export function GameCanvas() {
+type GameCanvasProps = {
+    onGameOver: (
+        result: GameResult
+    ) => void;
+};
+
+export function GameCanvas({
+    onGameOver
+}: GameCanvasProps) {
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -28,7 +37,9 @@ export function GameCanvas() {
             }
 
             // CARREGA O NAVIO
-            const playerTexture = await Assets.load(playerShipUrl);
+            const playerTexture = await Assets.load(
+                playerShipUrl
+            );
 
             if (cancelled) {
                 pixiApp.destroy(true);
@@ -43,7 +54,8 @@ export function GameCanvas() {
 
             game = new Game(
                 pixiApp,
-                playerTexture
+                playerTexture,
+                onGameOver
             );
         }
 
@@ -58,7 +70,7 @@ export function GameCanvas() {
                 children: true,
             });
         };
-    }, []);
+    }, [onGameOver]);
 
     return (
         <div
