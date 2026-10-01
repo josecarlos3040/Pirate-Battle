@@ -9,6 +9,8 @@ import chaserShipUrl from "../assets/png/default/ships/ship_3.png";
 import shooterShipUrl from "../assets/png/default/ships/ship_2.png";
 import cannonballUrl from "../assets/png/default/ship_parts/cannon_ball.png";
 
+import type { GameOptions } from "../game/config/gameOptions";
+
 type GameCanvasProps = {
     onGameOver: (
         result: GameResult
@@ -19,12 +21,15 @@ type GameCanvasProps = {
     ) => void;
 
     paused: boolean;
+
+    options: GameOptions;
 };
 
 export function GameCanvas({
     onGameOver,
     onPauseChange,
-    paused
+    paused,
+    options
 }: GameCanvasProps) {
 
     const containerRef =
@@ -114,6 +119,7 @@ export function GameCanvas({
             game = new Game(
                 pixiApp,
                 assets,
+                options,
                 onGameOver,
                 onPauseChange
             );

@@ -11,6 +11,7 @@ import { Island } from "../entities/Island";
 
 import { Hud } from "../ui/Hud";
 import type { GameAssets } from "./GameAssets";
+import type { GameOptions } from "../config/gameOptions";
 
 import { GAME_CONFIG } from "../config/gameConfig";
 
@@ -22,6 +23,8 @@ export type GameResult = {
     score: number;
     timePlayed: number;
     reason: GameEndReason;
+
+    config: GameOptions;
 };
 
 export class Game {
@@ -50,20 +53,22 @@ export class Game {
         paused: boolean
     ) => void;
 
-    private remainingTime: number =
-        GAME_CONFIG.match.duration;
-
 
 
     private frontShootCooldown = 0;
     private leftShootCooldown = 0;
     private rightShootCooldown = 0;
 
-    private enemySpawnTimer = GAME_CONFIG.match.enemySpawnInterval;
+    private matchOptions: GameOptions;
+
+    private remainingTime: number;
+    private enemySpawnTimer: number;
+
 
     constructor(
         app: Application,
         assets: GameAssets,
+        options: GameOptions,
 
         
         onGameOver: (
@@ -73,7 +78,8 @@ export class Game {
         onPauseChange: (
             paused: boolean
         ) => void
-    ) {
+    ) 
+    {
         this.app = app;
 
         this.onGameOver =
@@ -85,6 +91,18 @@ export class Game {
         this.app.stage.sortableChildren = true;
         
         this.assets = assets;
+
+        this.matchOptions = {
+            ...options
+        };
+
+        this.remainingTime =
+            this.matchOptions.sessionTime;
+
+        this.enemySpawnTimer =
+            this.matchOptions.enemySpawnTime;
+
+
 
         this.input = new InputManager();
 
@@ -223,8 +241,8 @@ export class Game {
         if (this.enemySpawnTimer <= 0) {
             this.spawnEnemy();
 
-            this.enemySpawnTimer =
-                GAME_CONFIG.match.enemySpawnInterval;
+        this.enemySpawnTimer =
+            this.matchOptions.enemySpawnTime;
         }
 
         // INPUT DE TIRO
@@ -1154,7 +1172,7 @@ export class Game {
         this.isGameOver = true;
 
         const timePlayed =
-            GAME_CONFIG.match.duration -
+            this.matchOptions.sessionTime -
             this.remainingTime;
 
         console.log(
@@ -1166,7 +1184,11 @@ export class Game {
         this.onGameOver({
             score: this.score,
             timePlayed,
-            reason
+            reason,
+
+            config: {
+                ...this.matchOptions
+            }
         });
     }
 

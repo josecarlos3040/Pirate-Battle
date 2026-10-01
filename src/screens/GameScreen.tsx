@@ -9,34 +9,37 @@ import type {
     GameResult
 } from "../game/core/Game";
 
-export function GameScreen() {
-    const [result, setResult] =
-        useState<GameResult | null>(null);
+import type {
+    GameOptions
+} from "../game/config/gameOptions";
 
-    const [gameId, setGameId] =
-        useState(0);
+type GameScreenProps = {
+    options: GameOptions;
 
+    onGameOver: (
+        result: GameResult
+    ) => void;
+
+    onMainMenu: () => void;
+};
+
+export function GameScreen({
+    options,
+    onGameOver,
+    onMainMenu
+}: GameScreenProps) {
     const [paused, setPaused] =
         useState(false);
 
     const handleGameOver =
         useCallback(
-            (gameResult: GameResult) => {
-                setResult(gameResult);
+            (result: GameResult) => {
+                setPaused(false);
+
+                onGameOver(result);
             },
-            []
+            [onGameOver]
         );
-
-    const playAgain = () => {
-        setResult(null);
-
-        setPaused(false);
-
-        setGameId(
-            current =>
-                current + 1
-        );
-    };
 
     return (
         <div
@@ -48,19 +51,17 @@ export function GameScreen() {
             }}
         >
             <GameCanvas
-                key={gameId}
+                options={options}
                 onGameOver={
                     handleGameOver
                 }
                 onPauseChange={
                     setPaused
                 }
-                paused={
-                    paused
-                }
+                paused={paused}
             />
 
-            {paused && !result && (
+            {paused && (
                 <div
                     style={{
                         position: "fixed",
@@ -71,9 +72,9 @@ export function GameScreen() {
                         alignItems: "center",
 
                         background:
-                            "rgba(0, 0, 0, 0.65)",
+                            "rgba(0,0,0,0.65)",
 
-                        zIndex: 900
+                        zIndex: 1000
                     }}
                 >
                     <div
@@ -82,19 +83,12 @@ export function GameScreen() {
                             color: "#111",
 
                             padding: "32px",
-
                             borderRadius: "12px",
 
                             textAlign: "center"
                         }}
                     >
-                        <h1>
-                            Paused
-                        </h1>
-
-                        <p>
-                            Press ESC or click Resume
-                        </p>
+                        <h1>Paused</h1>
 
                         <button
                             onClick={() =>
@@ -103,77 +97,13 @@ export function GameScreen() {
                         >
                             Resume
                         </button>
-                    </div>
-                </div>
-            )}
-
-            {result && (
-                <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-
-                        background:
-                            "rgba(0, 0, 0, 0.65)",
-
-                        zIndex: 1000
-                    }}
-                >
-                    <div
-                        style={{
-                            background:
-                                "#ffffff",
-
-                            color:
-                                "#111111",
-
-                            padding:
-                                "32px",
-
-                            borderRadius:
-                                "12px",
-
-                            minWidth:
-                                "300px",
-
-                            textAlign:
-                                "center"
-                        }}
-                    >
-                        <h1>
-                            Game Over
-                        </h1>
-
-                        <p>
-                            Score:{" "}
-                            {result.score}
-                        </p>
-
-                        <p>
-                            Time played:{" "}
-                            {Math.floor(
-                                result.timePlayed
-                            )}s
-                        </p>
-
-                        <p>
-                            Reason:{" "}
-                            {result.reason ===
-                            "death"
-                                ? "Ship destroyed"
-                                : "Time expired"}
-                        </p>
 
                         <button
                             onClick={
-                                playAgain
+                                onMainMenu
                             }
                         >
-                            Play Again
+                            Main Menu
                         </button>
                     </div>
                 </div>
